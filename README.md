@@ -1,101 +1,114 @@
-# 📊 Intelligent Architectural Analysis Engine
+# ArchMind — Intelligent Architectural Analysis Engine
 
-## 📌 Sobre o Projeto
+## Sobre
 
-Este projeto tem como objetivo desenvolver um motor inteligente capaz de analisar diagramas de arquitetura de software (como C4, HLD e ADR) a partir de imagens ou PDFs e gerar automaticamente um relatório técnico estruturado com insights relevantes.
+ArchMind é uma API FastAPI que recebe diagramas de arquitetura (imagens/PDFs) e retorna um relatório técnico estruturado com identificação de componentes, riscos e recomendações.
 
-A solução utiliza um pipeline cognitivo em múltiplas camadas para garantir consistência, rastreabilidade e qualidade analítica.
-
----
-
-## 🎯 Objetivo
-
-- Identificar componentes arquiteturais  
-- Mapear relações entre componentes  
-- Inferir padrões arquiteturais  
-- Identificar riscos técnicos  
-- Gerar recomendações  
-- Produzir relatórios estruturados  
+O projeto segue Clean Architecture: a camada HTTP (`api/`) delega a um pipeline sequencial de domínio (`core/`) sem nenhuma lógica de negócio no controller.
 
 ---
 
-## 🏗️ Arquitetura da Solução
+## Estrutura do Projeto
 
-### 1. Input Processing Layer
-Preparação do arquivo (imagem/PDF) com pré-processamento.
-
-### 2. Extraction Layer
-Extração de texto e elementos estruturais via OCR.
-
-### 3. Structuring Layer
-Conversão em modelo estruturado (JSON).
-
-### 4. Enrichment Layer
-Padronização e enriquecimento dos dados.
-
-### 5. Analysis Layer
-Identificação de riscos, padrões e melhorias.
-
-### 6. Report Generation Layer
-Geração de relatório técnico final.
-
----
-
-## 🤖 Uso de IA
-
-A IA é aplicada de forma controlada para estruturação, análise e geração de relatórios, evitando uso como caixa preta.
+```
+archmind/
+ ├── api/
+ │    └── routes/
+ │         └── upload.py       # Endpoint HTTP
+ ├── core/
+ │    ├── extraction/          # Etapa 1 — extração de elementos (OCR futuro)
+ │    ├── structuring/         # Etapa 2 — normalização para modelo estruturado
+ │    ├── analysis/            # Etapa 3 — detecção de problemas e recomendações
+ │    └── reporting/           # Etapa 4 — montagem do relatório final
+ ├── schemas/
+ │    └── report_schema.py     # Contrato de saída Pydantic
+ ├── infra/
+ │    └── storage/             # Persistência de arquivos (stub)
+ ├── main.py
+ ├── requirements.txt
+ └── README.md
+```
 
 ---
 
-## 🚀 Vantagens
+## Setup e Execução
 
-- Consistência  
-- Rastreabilidade  
-- Escalabilidade  
-- Redução de alucinações  
-- Alta qualidade analítica  
+### 1. Criar e ativar ambiente virtual
 
----
+```bash
+python -m venv .venv
 
-## 📂 Estrutura do Projeto
+# Windows
+.venv\Scripts\activate
 
-project-root/
-├── input/
-├── output/
-├── src/
-│   ├── input_processing/
-│   ├── extraction/
-│   ├── structuring/
-│   ├── enrichment/
-│   ├── analysis/
-│   └── report_generation/
-├── tests/
-├── docs/
-└── README.md
+# macOS / Linux
+source .venv/bin/activate
+```
 
----
+### 2. Instalar dependências
 
-## 🛠️ Tecnologias
+```bash
+pip install -r requirements.txt
+```
 
-- Python  
-- OpenCV  
-- Tesseract OCR  
-- LLM (OpenAI / open-weight)  
-- LangChain  
+### 3. Rodar o servidor
+
+```bash
+uvicorn main:app --reload
+```
+
+O servidor sobe em `http://127.0.0.1:8000`.
 
 ---
 
-## 📈 Roadmap
+## API
 
-- [ ] MVP OCR  
-- [ ] Estrutura JSON  
-- [ ] Enrichment  
-- [ ] Analysis Engine  
-- [ ] Report Generation  
-- [ ] UI  
+### POST /api/v1/upload-diagram
+
+Envia um diagrama de arquitetura e recebe um relatório de análise estruturado.
+
+**Request** — `multipart/form-data`
+
+| Campo | Tipo   | Descrição                        |
+|-------|--------|----------------------------------|
+| file  | binary | Imagem ou PDF da arquitetura     |
+
+**Response** — `application/json`
+
+```json
+{
+  "diagram_name": "example.png",
+  "summary": "Fluxo identificado com 4 etapas principais",
+  "issues": [
+    "Possível ausência de validação no passo 2",
+    "Alto acoplamento entre serviços"
+  ],
+  "recommendations": [
+    "Aplicar separação de responsabilidades",
+    "Adicionar camada de validação"
+  ]
+}
+```
 
 ---
 
-## 📄 Conclusão
+## Documentação Interativa (Swagger UI)
 
-Sistema capaz de transformar diagramas em conhecimento estruturado, com foco em confiabilidade, explicabilidade e uso corporativo.
+Com o servidor rodando, acesse:
+
+- Swagger UI: http://127.0.0.1:8000/docs
+- ReDoc: http://127.0.0.1:8000/redoc
+
+No Swagger UI: clique em **POST /api/v1/upload-diagram → Try it out**, selecione um arquivo e clique em **Execute**.
+
+---
+
+## Roadmap
+
+- [x] MVP FastAPI com pipeline mockado
+- [ ] Extração real via OCR (Tesseract / modelo de visão)
+- [ ] Mapeamento JSON de componentes
+- [ ] Motor de análise com LLM
+- [ ] Suporte a PDF
+- [ ] Armazenamento persistente
+- [ ] UI
