@@ -1,5 +1,7 @@
 from typing import Any
 
+from schemas.structuring_schema import StructuringInput
+
 
 def structure(raw_data: dict[str, Any]) -> dict[str, Any]:
     # Future: map OCR tokens to component/relationship entities via LLM
@@ -12,3 +14,7 @@ def structure(raw_data: dict[str, Any]) -> dict[str, Any]:
         ],
         "step_count": len(elements),
     }
+
+
+def process(data: StructuringInput) -> dict:
+    return data.model_dump(by_alias=True)

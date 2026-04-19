@@ -1,0 +1,78 @@
+# Ambientes virtuais
+.venv/
+venv/
+env/
+ENV/
+.env/
+
+# Variáveis de ambiente / segredos
+.env
+.env.local
+.env.*.local
+*.env
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+.Python
+
+# Distribuição / build
+dist/
+build/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Pytest / Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+nosetests.xml
+pytest-report.html
+
+# Mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff / linters
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Sistema operacional (Windows)
+Thumbs.db
+Thumbs.db:encdata
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Sistema operacional (macOS)
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Logs
+*.log
+logs/
+
+# Uploads e outputs da aplicação
+uploads/
+outputs/
+
+# Arquivos temporários
+*.tmp
+*.bak
+*.swp
+*.swo

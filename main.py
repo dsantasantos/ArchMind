@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from api.routes.upload import router as upload_router
+from api.routes.structuring import router as structuring_router
 
 app = FastAPI(
     title="ArchMind",
@@ -8,3 +9,4 @@ app = FastAPI(
 )
 
 app.include_router(upload_router, prefix="/api/v1", tags=["Diagrams"])
+app.include_router(structuring_router, prefix="/api/v1", tags=["Structuring"])
