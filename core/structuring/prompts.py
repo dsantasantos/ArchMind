@@ -29,6 +29,28 @@ Return JSON in the format:
 Return only the JSON array, no explanation."""
 
 
+def build_architecture_prompt(components: list, relationships: list) -> str:
+    return f"""Given the components and relationships:
+
+Components:
+{components}
+
+Relationships:
+{relationships}
+
+Identify the architecture style:
+(layered, microservices, monolith)
+
+Consider:
+- Number of services
+- Relationship patterns
+- System structure
+
+Rules:
+- Return ONLY one word
+- Do not explain"""
+
+
 def build_relationships_prompt(components: list, data: dict) -> str:
     return f"""You are given:
 

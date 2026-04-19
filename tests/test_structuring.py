@@ -17,6 +17,8 @@ MOCK_LLM_RESPONSE = '[{"id":"c1","name":"Frontend","type":"frontend"},{"id":"c2"
 
 MOCK_RELATIONSHIPS_RESPONSE = '[{"from":"c1","to":"c2","type":"http_request"},{"from":"c2","to":"c3","type":"database_query"}]'
 
+MOCK_ARCHITECTURE_RESPONSE = "layered"
+
 MOCK_COMPONENTS = [
     {"id": "c1", "name": "Frontend", "type": "frontend"},
     {"id": "c2", "name": "API", "type": "service"},
@@ -41,53 +43,68 @@ def _make_mock_relationship_llm():
     return mock
 
 
-def _patch_both_llms():
+def _make_mock_architecture_llm():
+    mock = MagicMock()
+    mock.generate.return_value = MOCK_ARCHITECTURE_RESPONSE
+    return mock
+
+
+def _patch_all_llms():
     return (
         patch("core.structuring.component_recognizer.ClaudeClient", return_value=_make_mock_component_llm()),
         patch("core.structuring.relationship_recognizer.ClaudeClient", return_value=_make_mock_relationship_llm()),
+        patch("core.structuring.architecture_recognizer.ClaudeClient", return_value=_make_mock_architecture_llm()),
     )
 
 
 class TestValidPayloads:
     def test_valid_payload_returns_200(self):
-        p1, p2 = _patch_both_llms()
-        with p1, p2:
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
             response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         assert response.status_code == 200
 
     def test_valid_payload_returns_success_status(self):
-        p1, p2 = _patch_both_llms()
-        with p1, p2:
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
             response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         assert response.json()["status"] == "success"
 
     def test_response_does_not_include_input_fields(self):
-        p1, p2 = _patch_both_llms()
-        with p1, p2:
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
             response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         data = response.json()["data"]
         assert "text_blocks" not in data
         assert "visual_elements" not in data
 
     def test_valid_payload_returns_components(self):
-        p1, p2 = _patch_both_llms()
-        with p1, p2:
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
             response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         data = response.json()["data"]
         assert "components" in data
         assert isinstance(data["components"], list)
 
     def test_valid_payload_returns_relationships(self):
-        p1, p2 = _patch_both_llms()
-        with p1, p2:
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
             response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         data = response.json()["data"]
         assert "relationships" in data
         assert isinstance(data["relationships"], list)
 
+    def test_valid_payload_returns_architecture_style(self):
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
+            response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
+        data = response.json()["data"]
+        assert "architecture_style" in data
+        assert data["architecture_style"] == "layered"
+
     def test_valid_payload_components_have_correct_fields(self):
-        p1, p2 = _patch_both_llms()
-        with p1, p2:
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
             response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         components = response.json()["data"]["components"]
         assert len(components) == 3
@@ -97,8 +114,8 @@ class TestValidPayloads:
             assert "type" in c
 
     def test_valid_payload_component_types_are_valid(self):
-        p1, p2 = _patch_both_llms()
-        with p1, p2:
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
             response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         components = response.json()["data"]["components"]
         valid_types = {"frontend", "service", "database"}
@@ -106,8 +123,8 @@ class TestValidPayloads:
             assert c["type"] in valid_types
 
     def test_valid_payload_relationships_have_correct_fields(self):
-        p1, p2 = _patch_both_llms()
-        with p1, p2:
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
             response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         relationships = response.json()["data"]["relationships"]
         assert len(relationships) == 2
@@ -117,8 +134,8 @@ class TestValidPayloads:
             assert "type" in r
 
     def test_valid_payload_relationship_types_are_valid(self):
-        p1, p2 = _patch_both_llms()
-        with p1, p2:
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
             response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         relationships = response.json()["data"]["relationships"]
         valid_types = {"http_request", "database_query", "internal_call"}
@@ -126,8 +143,8 @@ class TestValidPayloads:
             assert r["type"] in valid_types
 
     def test_valid_payload_relationship_ids_reference_components(self):
-        p1, p2 = _patch_both_llms()
-        with p1, p2:
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
             response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         data = response.json()["data"]
         component_ids = {c["id"] for c in data["components"]}
@@ -136,14 +153,15 @@ class TestValidPayloads:
             assert r["to"] in component_ids
 
     def test_valid_payload_complete_response_structure(self):
-        p1, p2 = _patch_both_llms()
-        with p1, p2:
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
             response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         body = response.json()
         assert "status" in body
         assert "data" in body
         assert "components" in body["data"]
         assert "relationships" in body["data"]
+        assert "architecture_style" in body["data"]
 
 
 class TestInvalidPayloads:
@@ -253,3 +271,21 @@ class TestRelationshipRecognizer:
         assert result[0]["from"] == "c1"
         assert result[0]["to"] == "c2"
         assert result[1]["type"] == "database_query"
+
+
+class TestArchitectureRecognizer:
+    def test_parse_returns_first_word(self):
+        from core.structuring.architecture_recognizer import _parse_architecture_style
+        assert _parse_architecture_style("layered") == "layered"
+
+    def test_parse_strips_whitespace(self):
+        from core.structuring.architecture_recognizer import _parse_architecture_style
+        assert _parse_architecture_style("  microservices extra") == "microservices"
+
+    def test_parse_returns_unknown_on_empty(self):
+        from core.structuring.architecture_recognizer import _parse_architecture_style
+        assert _parse_architecture_style("") == "unknown"
+
+    def test_parse_lowercases_result(self):
+        from core.structuring.architecture_recognizer import _parse_architecture_style
+        assert _parse_architecture_style("LAYERED") == "layered"
