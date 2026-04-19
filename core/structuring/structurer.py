@@ -1,6 +1,7 @@
 from typing import Any
 
 from schemas.structuring_schema import StructuringInput
+from core.structuring.component_recognizer import recognize_components
 
 
 def structure(raw_data: dict[str, Any]) -> dict[str, Any]:
@@ -17,4 +18,6 @@ def structure(raw_data: dict[str, Any]) -> dict[str, Any]:
 
 
 def process(data: StructuringInput) -> dict:
-    return data.model_dump(by_alias=True)
+    return {
+        "components": recognize_components(data.text_blocks),
+    }

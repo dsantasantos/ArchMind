@@ -1,3 +1,4 @@
+from unittest.mock import patch, MagicMock
 from starlette.testclient import TestClient
 
 from main import app
@@ -12,35 +13,71 @@ VALID_PAYLOAD = {
     ],
 }
 
+MOCK_LLM_RESPONSE = '[{"id":"c1","name":"Frontend","type":"frontend"},{"id":"c2","name":"API","type":"service"},{"id":"c3","name":"Database","type":"database"}]'
+
+MOCK_COMPONENTS = [
+    {"id": "c1", "name": "Frontend", "type": "frontend"},
+    {"id": "c2", "name": "API", "type": "service"},
+    {"id": "c3", "name": "Database", "type": "database"},
+]
+
+
+def _make_mock_llm():
+    mock = MagicMock()
+    mock.generate.return_value = MOCK_LLM_RESPONSE
+    return mock
+
 
 class TestValidPayloads:
     def test_valid_payload_returns_200(self):
-        response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
+        with patch("core.structuring.component_recognizer.ClaudeClient", return_value=_make_mock_llm()):
+            response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         assert response.status_code == 200
 
     def test_valid_payload_returns_success_status(self):
-        response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
+        with patch("core.structuring.component_recognizer.ClaudeClient", return_value=_make_mock_llm()):
+            response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         assert response.json()["status"] == "success"
 
-    def test_valid_payload_echoes_text_blocks(self):
-        response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
-        assert response.json()["data"]["text_blocks"] == VALID_PAYLOAD["text_blocks"]
+    def test_response_does_not_include_input_fields(self):
+        with patch("core.structuring.component_recognizer.ClaudeClient", return_value=_make_mock_llm()):
+            response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
+        data = response.json()["data"]
+        assert "text_blocks" not in data
+        assert "visual_elements" not in data
 
-    def test_valid_payload_uses_from_alias_not_from_underscore(self):
-        response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
-        element = response.json()["data"]["visual_elements"][0]
-        assert "from" in element
-        assert "from_" not in element
-        assert element["from"] == "Frontend"
-        assert element["to"] == "API"
+    def test_valid_payload_returns_components(self):
+        with patch("core.structuring.component_recognizer.ClaudeClient", return_value=_make_mock_llm()):
+            response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
+        data = response.json()["data"]
+        assert "components" in data
+        assert isinstance(data["components"], list)
+
+    def test_valid_payload_components_have_correct_fields(self):
+        with patch("core.structuring.component_recognizer.ClaudeClient", return_value=_make_mock_llm()):
+            response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
+        components = response.json()["data"]["components"]
+        assert len(components) == 3
+        for c in components:
+            assert "id" in c
+            assert "name" in c
+            assert "type" in c
+
+    def test_valid_payload_component_types_are_valid(self):
+        with patch("core.structuring.component_recognizer.ClaudeClient", return_value=_make_mock_llm()):
+            response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
+        components = response.json()["data"]["components"]
+        valid_types = {"frontend", "service", "database"}
+        for c in components:
+            assert c["type"] in valid_types
 
     def test_valid_payload_complete_response_structure(self):
-        response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
+        with patch("core.structuring.component_recognizer.ClaudeClient", return_value=_make_mock_llm()):
+            response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         body = response.json()
         assert "status" in body
         assert "data" in body
-        assert "text_blocks" in body["data"]
-        assert "visual_elements" in body["data"]
+        assert "components" in body["data"]
 
 
 class TestInvalidPayloads:
@@ -110,3 +147,22 @@ class TestInvalidPayloads:
         response = client.post("/api/v1/structuring", json=payload)
         assert response.status_code == 422
         assert response.json()["status"] == "error"
+
+
+class TestComponentRecognizer:
+    def test_recognizer_returns_empty_list_on_invalid_json(self):
+        from core.structuring.component_recognizer import _parse_components
+        assert _parse_components("not json") == []
+
+    def test_recognizer_parses_json_wrapped_in_markdown(self):
+        from core.structuring.component_recognizer import _parse_components
+        text = '```json\n[{"id":"c1","name":"A","type":"frontend"}]\n```'
+        result = _parse_components(text)
+        assert len(result) == 1
+        assert result[0]["name"] == "A"
+
+    def test_recognizer_parses_clean_json(self):
+        from core.structuring.component_recognizer import _parse_components
+        result = _parse_components(MOCK_LLM_RESPONSE)
+        assert len(result) == 3
+        assert result[0]["type"] == "frontend"
