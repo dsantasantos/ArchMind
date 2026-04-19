@@ -3,14 +3,14 @@ import re
 
 from infra.llm.base import LLMClient
 from infra.llm.claude_client import ClaudeClient
-from core.structuring.prompts import build_prompt
+from core.structuring.prompts import build_components_prompt
 
 
 def recognize_components(text_blocks: list[str], llm: LLMClient | None = None) -> list[dict]:
     if llm is None:
         llm = ClaudeClient()
 
-    prompt = build_prompt({"text_blocks": text_blocks})
+    prompt = build_components_prompt({"text_blocks": text_blocks})
     raw = llm.generate(prompt)
 
     return _parse_components(raw)

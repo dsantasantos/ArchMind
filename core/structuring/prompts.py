@@ -1,4 +1,4 @@
-def build_prompt(data: dict) -> str:
+def build_components_prompt(data: dict) -> str:
     return f"""You are analyzing extracted text from an architecture diagram.
 
 Text elements:
