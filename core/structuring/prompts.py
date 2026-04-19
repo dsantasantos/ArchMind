@@ -27,3 +27,33 @@ Return JSON in the format:
 ]
 
 Return only the JSON array, no explanation."""
+
+
+def build_relationships_prompt(components: list, data: dict) -> str:
+    return f"""You are given:
+
+Components:
+{components}
+
+Visual connections:
+{data["visual_elements"]}
+
+Infer relationships between components.
+
+Also infer the type:
+- http_request
+- database_query
+- internal_call
+
+Rules:
+- Use component IDs (c1, c2, etc.)
+- Do not invent components
+- Only create relationships that are supported by visual connections
+- Infer the most appropriate type based on context
+
+Return JSON:
+[
+  {{ "from": "c1", "to": "c2", "type": "..." }}
+]
+
+Return only the JSON array, no explanation."""
