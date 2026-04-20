@@ -245,6 +245,7 @@ A suite `tests/test_structuring.py` cobre:
 - [x] Etapa 2 — Endpoint direto `/api/v1/structuring`
 - [x] Etapa 3 — Camada de enriquecimento (stub)
 - [ ] Etapa 1 — Extração real via OCR (Tesseract / modelo de visão)
+- [ ] Etapa 1 — Extração real via Visão Computacional
 - [ ] Etapa 3 — Enriquecimento real com taxonomia de domínio
 - [ ] Etapa 4 — Motor de análise com LLM
 - [ ] Suporte a PDF
