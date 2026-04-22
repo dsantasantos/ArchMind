@@ -27,7 +27,7 @@ async def extraction_endpoint(file: UploadFile = File(...)):
 
     try:
         result = extract_from_image(image_base64, media_type=media_type)
-    except ValueError as e:
+    except Exception as e:
         return JSONResponse(
             status_code=500,
             content={"status": "error", "message": str(e)},

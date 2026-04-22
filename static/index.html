@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ArchMind</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #6c63ff;
+      --accent-hover: #8b85ff;
+      --text: #e2e6f0;
+      --text-muted: #7a82a0;
+      --success: #4ade80;
+      --error: #f87171;
+      --warning: #fbbf24;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    header .logo {
+      width: 36px; height: 36px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700; color: #fff;
+    }
+
+    header h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: .5px; }
+    header p  { font-size: .8rem; color: var(--text-muted); margin-top: 1px; }
+
+    /* ── Layout ── */
+    .container { max-width: 900px; margin: 40px auto; padding: 0 24px 60px; }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex; gap: 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 32px;
+    }
+
+    .tab-btn {
+      background: none; border: none; color: var(--text-muted);
+      padding: 10px 20px; cursor: pointer; font-size: .9rem;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      transition: color .2s, border-color .2s;
+      border-radius: 6px 6px 0 0;
+    }
+
+    .tab-btn:hover  { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+
+    .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 18px; color: var(--text); }
+
+    /* ── Drop zone ── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+    }
+
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(108,99,255,.05);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+
+    .drop-zone .icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .drop-zone .label { color: var(--text-muted); font-size: .9rem; }
+    .drop-zone .label strong { color: var(--accent); }
+    .drop-zone .filename { margin-top: 10px; color: var(--success); font-size: .85rem; font-weight: 500; }
+
+    /* ── Form elements ── */
+    label { display: block; font-size: .82rem; color: var(--text-muted); margin-bottom: 6px; }
+
+    input[type="text"], textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 9px 12px;
+      font-size: .9rem;
+      outline: none;
+      transition: border-color .2s;
+      font-family: inherit;
+    }
+
+    input[type="text"]:focus, textarea:focus { border-color: var(--accent); }
+
+    textarea { resize: vertical; min-height: 80px; }
+
+    .form-row { display: flex; gap: 10px; align-items: flex-end; }
+    .form-row input { flex: 1; }
+
+    .field { margin-bottom: 16px; }
+
+    /* ── Tag list ── */
+    .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+    .tag {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 10px 3px 12px;
+      font-size: .8rem;
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    .tag button {
+      background: none; border: none; color: var(--text-muted);
+      cursor: pointer; font-size: 1rem; padding: 0; line-height: 1;
+    }
+    .tag button:hover { color: var(--error); }
+
+    /* ── Buttons ── */
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 10px 22px;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s, opacity .2s;
+    }
+
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-sm { padding: 7px 14px; font-size: .82rem; }
+
+    .btn-outline {
+      background: none;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+    }
+    .btn-outline:hover { background: rgba(108,99,255,.1); }
+
+    .btn-row { display: flex; justify-content: flex-end; margin-top: 20px; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Result box ── */
+    .result-box {
+      margin-top: 24px;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .result-box .result-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px;
+      font-size: .8rem; font-weight: 600;
+      background: var(--surface2);
+    }
+
+    .result-box .result-header.ok   { color: var(--success); }
+    .result-box .result-header.fail { color: var(--error); }
+
+    .result-box pre {
+      background: #0d0f19;
+      padding: 20px;
+      font-size: .82rem;
+      line-height: 1.6;
+      overflow-x: auto;
+      color: #c9d1e8;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
+    /* ── Section description ── */
+    .section-desc {
+      font-size: .85rem;
+      color: var(--text-muted);
+      margin-bottom: 22px;
+      line-height: 1.6;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    .badge-post { background: rgba(108,99,255,.2); color: var(--accent); }
+
+    /* ── Separator line in structuring ── */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+    /* ── Image preview ── */
+    #extraction-preview, #upload-preview {
+      max-width: 100%; max-height: 220px;
+      display: none; margin-top: 12px;
+      border-radius: 6px; border: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">A</div>
+  <div>
+    <h1>ArchMind</h1>
+    <p>Intelligent Architectural Analysis Engine</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="upload">Upload Diagram</button>
+    <button class="tab-btn" data-tab="extraction">Extraction</button>
+    <button class="tab-btn" data-tab="structuring">Structuring</button>
+  </div>
+
+  <!-- ══════════════════════════════════ TAB: UPLOAD ══════════════════════════════════ -->
+  <div class="tab-panel active" id="tab-upload">
+    <p class="section-desc">
+      <span class="badge badge-post">POST</span> <code>/api/v1/upload-diagram</code> &nbsp;—
+      Envia um diagrama e executa o pipeline completo: extração → estruturação → enriquecimento → análise → relatório.
+    </p>
+
+    <div class="card">
+      <h2>Selecionar Diagrama</h2>
+
+      <div class="drop-zone" id="upload-drop">
+        <input type="file" id="upload-file" accept="image/*,.pdf" />
+        <div class="icon">🖼️</div>
+        <div class="label">Arraste e solte ou <strong>clique para selecionar</strong></div>
+        <div class="filename" id="upload-filename"></div>
+      </div>
+
+      <img id="upload-preview" alt="preview" />
+
+      <div class="btn-row">
+        <button class="btn" id="upload-btn" disabled>Analisar Diagrama</button>
+      </div>
+    </div>
+
+    <div id="upload-result"></div>
+  </div>
+
+  <!-- ══════════════════════════════════ TAB: EXTRACTION ══════════════════════════════════ -->
+  <div class="tab-panel" id="tab-extraction">
+    <p class="section-desc">
+      <span class="badge badge-post">POST</span> <code>/api/v1/extraction</code> &nbsp;—
+      Envia uma imagem PNG/JPG e o modelo de visão extrai os elementos arquiteturais em JSON.
+    </p>
+
+    <div class="card">
+      <h2>Selecionar Imagem</h2>
+
+      <div class="drop-zone" id="extraction-drop">
+        <input type="file" id="extraction-file" accept=".png,.jpg,.jpeg" />
+        <div class="icon">📷</div>
+        <div class="label">Arraste e solte ou <strong>clique para selecionar</strong><br><small style="color:var(--text-muted)">Aceita .png, .jpg, .jpeg</small></div>
+        <div class="filename" id="extraction-filename"></div>
+      </div>
+
+      <img id="extraction-preview" alt="preview" />
+
+      <div class="btn-row">
+        <button class="btn" id="extraction-btn" disabled>Extrair Elementos</button>
+      </div>
+    </div>
+
+    <div id="extraction-result"></div>
+  </div>
+
+  <!-- ══════════════════════════════════ TAB: STRUCTURING ══════════════════════════════════ -->
+  <div class="tab-panel" id="tab-structuring">
+    <p class="section-desc">
+      <span class="badge badge-post">POST</span> <code>/api/v1/structuring</code> &nbsp;—
+      Recebe blocos de texto e elementos visuais e retorna componentes, relacionamentos e estilo arquitetural.
+    </p>
+
+    <div class="card">
+      <h2>Text Blocks</h2>
+      <div class="field">
+        <label>Adicionar bloco de texto (componente ou serviço)</label>
+        <div class="form-row">
+          <input type="text" id="tb-input" placeholder="ex: API Gateway, Auth Service, User DB…" />
+          <button class="btn btn-sm btn-outline" id="tb-add">+ Adicionar</button>
+        </div>
+        <div class="tag-list" id="tb-list"></div>
+      </div>
+
+      <hr class="divider" />
+
+      <h2>Visual Elements (conexões)</h2>
+      <div class="field">
+        <label>Adicionar conexão entre componentes</label>
+        <div class="form-row">
+          <input type="text" id="ve-from" placeholder="De (from)" />
+          <span style="color:var(--text-muted); white-space:nowrap">→</span>
+          <input type="text" id="ve-to" placeholder="Para (to)" />
+          <button class="btn btn-sm btn-outline" id="ve-add">+ Adicionar</button>
+        </div>
+        <div class="tag-list" id="ve-list"></div>
+      </div>
+
+      <hr class="divider" />
+
+      <h2>Preview do Payload</h2>
+      <pre id="payload-preview" style="background:#0d0f19;padding:16px;border-radius:8px;font-size:.8rem;color:#c9d1e8;border:1px solid var(--border)">{}</pre>
+
+      <div class="btn-row" style="gap:10px">
+        <button class="btn btn-outline" id="example-btn">Carregar Exemplo</button>
+        <button class="btn" id="structuring-btn">Estruturar</button>
+      </div>
+    </div>
+
+    <div id="structuring-result"></div>
+  </div>
+
+</div>
+
+<script>
+  /* ─── Tabs ─── */
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  /* ─── Drag-over visual feedback ─── */
+  function setupDropZone(zoneId) {
+    const zone = document.getElementById(zoneId);
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', () => zone.classList.remove('drag-over'));
+  }
+  setupDropZone('upload-drop');
+  setupDropZone('extraction-drop');
+
+  /* ─── File selection feedback ─── */
+  function onFileChange(inputId, filenameId, btnId, previewId) {
+    document.getElementById(inputId).addEventListener('change', function () {
+      const file = this.files[0];
+      const filenameEl = document.getElementById(filenameId);
+      const btn        = document.getElementById(btnId);
+      const preview    = previewId ? document.getElementById(previewId) : null;
+
+      if (file) {
+        filenameEl.textContent = '✓ ' + file.name;
+        btn.disabled = false;
+        if (preview && file.type.startsWith('image/')) {
+          preview.src = URL.createObjectURL(file);
+          preview.style.display = 'block';
+        }
+      } else {
+        filenameEl.textContent = '';
+        btn.disabled = true;
+        if (preview) { preview.style.display = 'none'; preview.src = ''; }
+      }
+    });
+  }
+
+  onFileChange('upload-file',     'upload-filename',     'upload-btn',     'upload-preview');
+  onFileChange('extraction-file', 'extraction-filename', 'extraction-btn', 'extraction-preview');
+
+  /* ─── Render result ─── */
+  function renderResult(containerId, status, data) {
+    const container = document.getElementById(containerId);
+    const isOk = status >= 200 && status < 300;
+    container.innerHTML = `
+      <div class="result-box">
+        <div class="result-header ${isOk ? 'ok' : 'fail'}">
+          ${isOk ? '✓' : '✗'} &nbsp; HTTP ${status}
+          <button class="btn btn-sm btn-outline" onclick="copyResult(this)">Copiar JSON</button>
+        </div>
+        <pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>
+      </div>`;
+  }
+
+  function renderError(containerId, message) {
+    document.getElementById(containerId).innerHTML = `
+      <div class="result-box">
+        <div class="result-header fail">✗ &nbsp; Erro de rede</div>
+        <pre>${escapeHtml(message)}</pre>
+      </div>`;
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function copyResult(btn) {
+    const text = btn.closest('.result-box').querySelector('pre').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'Copiado!';
+      setTimeout(() => btn.textContent = 'Copiar JSON', 1500);
+    });
+  }
+
+  function setLoading(btn, loading) {
+    if (loading) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Aguardando…';
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = btn.dataset.label;
+    }
+  }
+
+  /* ─── Safe JSON parse (handles HTML 500 pages) ─── */
+  async function safeJson(res) {
+    const text = await res.text();
+    try { return JSON.parse(text); }
+    catch { return { status: 'error', message: text.slice(0, 400) }; }
+  }
+
+  /* ─── Upload Diagram ─── */
+  const uploadBtn = document.getElementById('upload-btn');
+  uploadBtn.dataset.label = 'Analisar Diagrama';
+
+  uploadBtn.addEventListener('click', async () => {
+    const file = document.getElementById('upload-file').files[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append('file', file);
+    setLoading(uploadBtn, true);
+    try {
+      const res  = await fetch('/api/v1/upload-diagram', { method: 'POST', body: form });
+      const data = await safeJson(res);
+      renderResult('upload-result', res.status, data);
+    } catch (err) {
+      renderError('upload-result', err.message);
+    } finally {
+      setLoading(uploadBtn, false);
+    }
+  });
+
+  /* ─── Extraction ─── */
+  const extractionBtn = document.getElementById('extraction-btn');
+  extractionBtn.dataset.label = 'Extrair Elementos';
+
+  extractionBtn.addEventListener('click', async () => {
+    const file = document.getElementById('extraction-file').files[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append('file', file);
+    setLoading(extractionBtn, true);
+    try {
+      const res  = await fetch('/api/v1/extraction', { method: 'POST', body: form });
+      const data = await safeJson(res);
+      renderResult('extraction-result', res.status, data);
+    } catch (err) {
+      renderError('extraction-result', err.message);
+    } finally {
+      setLoading(extractionBtn, false);
+    }
+  });
+
+  /* ─── Structuring: tag helpers ─── */
+  const textBlocks = [];
+  const visualElements = [];
+
+  function updatePayloadPreview() {
+    const payload = { text_blocks: textBlocks, visual_elements: visualElements };
+    document.getElementById('payload-preview').textContent = JSON.stringify(payload, null, 2);
+  }
+
+  function addTag(list, label, onRemove) {
+    const tag = document.createElement('div');
+    tag.className = 'tag';
+    tag.innerHTML = `<span>${escapeHtml(label)}</span><button title="Remover">×</button>`;
+    tag.querySelector('button').addEventListener('click', () => {
+      onRemove();
+      tag.remove();
+      updatePayloadPreview();
+    });
+    list.appendChild(tag);
+  }
+
+  document.getElementById('tb-add').addEventListener('click', () => {
+    const input = document.getElementById('tb-input');
+    const val   = input.value.trim();
+    if (!val) return;
+    textBlocks.push(val);
+    addTag(document.getElementById('tb-list'), val, () => {
+      const idx = textBlocks.indexOf(val);
+      if (idx > -1) textBlocks.splice(idx, 1);
+    });
+    input.value = '';
+    updatePayloadPreview();
+  });
+
+  document.getElementById('tb-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('tb-add').click();
+  });
+
+  document.getElementById('ve-add').addEventListener('click', () => {
+    const from = document.getElementById('ve-from').value.trim();
+    const to   = document.getElementById('ve-to').value.trim();
+    if (!from || !to) return;
+    const entry = { from, to };
+    visualElements.push(entry);
+    addTag(document.getElementById('ve-list'), `${from} → ${to}`, () => {
+      const idx = visualElements.findIndex(e => e.from === from && e.to === to);
+      if (idx > -1) visualElements.splice(idx, 1);
+    });
+    document.getElementById('ve-from').value = '';
+    document.getElementById('ve-to').value   = '';
+    updatePayloadPreview();
+  });
+
+  /* ─── Structuring: load example ─── */
+  const EXAMPLE_BLOCKS = ['API Gateway', 'Auth Service', 'User DB'];
+  const EXAMPLE_VES    = [{ from: 'API Gateway', to: 'Auth Service' }, { from: 'Auth Service', to: 'User DB' }];
+
+  document.getElementById('example-btn').addEventListener('click', () => {
+    // clear current state
+    textBlocks.length = 0;
+    visualElements.length = 0;
+    document.getElementById('tb-list').innerHTML = '';
+    document.getElementById('ve-list').innerHTML = '';
+
+    EXAMPLE_BLOCKS.forEach(val => {
+      textBlocks.push(val);
+      addTag(document.getElementById('tb-list'), val, () => {
+        const idx = textBlocks.indexOf(val); if (idx > -1) textBlocks.splice(idx, 1);
+      });
+    });
+
+    EXAMPLE_VES.forEach(entry => {
+      visualElements.push(entry);
+      addTag(document.getElementById('ve-list'), `${entry.from} → ${entry.to}`, () => {
+        const idx = visualElements.findIndex(e => e.from === entry.from && e.to === entry.to);
+        if (idx > -1) visualElements.splice(idx, 1);
+      });
+    });
+
+    updatePayloadPreview();
+  });
+
+  /* ─── Structuring: submit ─── */
+  const structuringBtn = document.getElementById('structuring-btn');
+  structuringBtn.dataset.label = 'Estruturar';
+
+  structuringBtn.addEventListener('click', async () => {
+    const payload = { text_blocks: textBlocks, visual_elements: visualElements };
+    setLoading(structuringBtn, true);
+    try {
+      const res  = await fetch('/api/v1/structuring', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await safeJson(res);
+      renderResult('structuring-result', res.status, data);
+    } catch (err) {
+      renderError('structuring-result', err.message);
+    } finally {
+      setLoading(structuringBtn, false);
+    }
+  });
+
+  /* ─── Init ─── */
+  updatePayloadPreview();
+</script>
+
+</body>
+</html>
