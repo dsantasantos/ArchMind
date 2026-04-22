@@ -1,0 +1,213 @@
+{
+    "components": [
+        {
+            "id": "box_0",
+            "parent_id": null,
+            "text": "xmlHttp Response Sistema Servidor XML File: User Data Forms Structure Interface Layer File system Multilanguage literals Pre-built queries forms structure (lazy) Business Layer Interface HTML Document do containing only Usuário Javascript Library (IU) Subset (min) Persistance Layer PostgreSQL User Data Other formatted media Doctrine ORM",
+            "geometry": {
+                "x": 56,
+                "y": 181,
+                "w": 996,
+                "h": 557
+            }
+        },
+        {
+            "id": "box_1",
+            "parent_id": "box_0",
+            "text": "Other formatted media",
+            "geometry": {
+                "x": 269,
+                "y": 586,
+                "w": 216,
+                "h": 110
+            }
+        },
+        {
+            "id": "box_30",
+            "parent_id": "box_0",
+            "text": "Persistance Layer",
+            "geometry": {
+                "x": 552,
+                "y": 522,
+                "w": 216,
+                "h": 61
+            }
+        },
+        {
+            "id": "box_53",
+            "parent_id": "box_0",
+            "text": "HTML Document Containing only Javascript Library subset (min)",
+            "geometry": {
+                "x": 269,
+                "y": 424,
+                "w": 216,
+                "h": 110
+            }
+        },
+        {
+            "id": "box_123",
+            "parent_id": "box_0",
+            "text": "Business Layer",
+            "geometry": {
+                "x": 552,
+                "y": 408,
+                "w": 216,
+                "h": 62
+            }
+        },
+        {
+            "id": "box_142",
+            "parent_id": "box_0",
+            "text": "Multllanguage Ilterais HTML Document containing only Javascript Library subset (min)",
+            "geometry": {
+                "x": 246,
+                "y": 348,
+                "w": 285,
+                "h": 294
+            }
+        },
+        {
+            "id": "box_144",
+            "parent_id": "box_0",
+            "text": "Forms Structure Multilanguage literals HTML Document Containing only",
+            "geometry": {
+                "x": 246,
+                "y": 325,
+                "w": 287,
+                "h": 154
+            }
+        },
+        {
+            "id": "box_145",
+            "parent_id": "box_0",
+            "text": "File system Pre-built 'queries forms structure (lazy)",
+            "geometry": {
+                "x": 862,
+                "y": 302,
+                "w": 167,
+                "h": 118
+            }
+        },
+        {
+            "id": "box_195",
+            "parent_id": "box_0",
+            "text": "Interface Layer",
+            "geometry": {
+                "x": 552,
+                "y": 295,
+                "w": 216,
+                "h": 61
+            }
+        },
+        {
+            "id": "box_214",
+            "parent_id": "box_0",
+            "text": "XML File: User Data Forms Structure Multilanguage literals",
+            "geometry": {
+                "x": 269,
+                "y": 272,
+                "w": 216,
+                "h": 107
+            }
+        },
+        {
+            "id": "box_285",
+            "parent_id": "box_0",
+            "text": "Sistema Servidor XML File: User Data Forms Structure Interface Layer File system Multilanguage literals Pre-built queries forms structure (lazy) Business Layer HTML Document Containing only Javascript Library Subset (min) Persistance Layer PostgreSQL User Data Other formatted media Doctrine ORM",
+            "geometry": {
+                "x": 227,
+                "y": 223,
+                "w": 824,
+                "h": 515
+            }
+        },
+        {
+            "id": "box_287",
+            "parent_id": "box_0",
+            "text": "Persistance Layer PostgreSQL User Data Doctrine ORM",
+            "geometry": {
+                "x": 551,
+                "y": 474,
+                "w": 478,
+                "h": 223
+            }
+        },
+        {
+            "id": "box_288",
+            "parent_id": "box_0",
+            "text": "Doctrine ORM",
+            "geometry": {
+                "x": 552,
+                "y": 635,
+                "w": 216,
+                "h": 61
+            }
+        },
+        {
+            "id": "box_306",
+            "parent_id": "box_0",
+            "text": "PostgreSQL User Data",
+            "geometry": {
+                "x": 862,
+                "y": 503,
+                "w": 167,
+                "h": 118
+            }
+        },
+        {
+            "id": "box_356",
+            "parent_id": "box_0",
+            "text": "XML File: User Data Interfac Forms Structure Multilanguage literals Busines HTML Document Containing only",
+            "geometry": {
+                "x": 227,
+                "y": 223,
+                "w": 433,
+                "h": 256
+            }
+        },
+        {
+            "id": "box_357",
+            "parent_id": "box_0",
+            "text": "Interface do Usuário (IU)",
+            "geometry": {
+                "x": 57,
+                "y": 219,
+                "w": 118,
+                "h": 519
+            }
+        },
+        {
+            "id": "box_387",
+            "parent_id": "box_0",
+            "text": "xmlHttp Response XML File: User Data Interfac Forms Structure Multilanguage literals Busines face HTML Document Containing only",
+            "geometry": {
+                "x": 115,
+                "y": 182,
+                "w": 545,
+                "h": 297
+            }
+        },
+        {
+            "id": "box_409",
+            "parent_id": null,
+            "text": "Sistema de Gestão Corporativa ERP-ADJ Diagrama de Arquitetura",
+            "geometry": {
+                "x": 442,
+                "y": 67,
+                "w": 266,
+                "h": 67
+            }
+        },
+        {
+            "id": "box_410",
+            "parent_id": "box_409",
+            "text": "Sistema de Gestão Corporativa ERP-ADJ Diagrama de Arquitetura",
+            "geometry": {
+                "x": 443,
+                "y": 68,
+                "w": 264,
+                "h": 65
+            }
+        }
+    ]
+}
