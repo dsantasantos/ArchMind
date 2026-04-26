@@ -6,10 +6,27 @@ from main import app
 client = TestClient(app)
 
 VALID_PAYLOAD = {
-    "text_blocks": ["Frontend", "React Application", "API", "Database"],
-    "visual_elements": [
-        {"from": "Frontend", "to": "API"},
-        {"from": "API", "to": "Database"},
+    "text_blocks": ["Frontend", "React Application", "HTTP Request", "API", "Backend Service", "REST API", "Database Queries", "Database", "SQL Server"],
+    "grouped_elements": [
+        {"label": "Frontend Component", "texts": ["Frontend", "React Application"]},
+        {"label": "API Component", "texts": ["API", "Backend Service", "REST API"]},
+        {"label": "Database Component", "texts": ["Database", "SQL Server"]},
+    ],
+    "detected_keywords": [
+        {"text": "React Application", "hint": "frontend_framework"},
+        {"text": "REST API", "hint": "api_architecture_style"},
+        {"text": "Backend Service", "hint": "service_layer"},
+        {"text": "SQL Server", "hint": "database_system"},
+        {"text": "HTTP Request", "hint": "communication_protocol"},
+    ],
+    "relationship_hints": [
+        {"from": "Frontend", "to": "API", "label": "HTTP Request"},
+        {"from": "API", "to": "Database", "label": "Database Queries"},
+    ],
+    "context_groups": [
+        {"name": "Frontend Layer", "contains": ["Frontend", "React Application"]},
+        {"name": "API Layer", "contains": ["API", "Backend Service", "REST API"]},
+        {"name": "Data Layer", "contains": ["Database", "SQL Server"]},
     ],
 }
 
@@ -76,7 +93,10 @@ class TestValidPayloads:
             response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         data = response.json()["data"]
         assert "text_blocks" not in data
-        assert "visual_elements" not in data
+        assert "relationship_hints" not in data
+        assert "grouped_elements" not in data
+        assert "detected_keywords" not in data
+        assert "context_groups" not in data
 
     def test_valid_payload_returns_components(self):
         p1, p2, p3 = _patch_all_llms()
@@ -172,38 +192,65 @@ class TestInvalidPayloads:
         assert response.json()["status"] == "error"
         assert response.json()["message"] == "Invalid payload structure"
 
-    def test_visual_elements_not_a_list_returns_422(self):
-        payload = {**VALID_PAYLOAD, "visual_elements": "not a list"}
+    def test_relationship_hints_not_a_list_returns_422(self):
+        payload = {**VALID_PAYLOAD, "relationship_hints": "not a list"}
         response = client.post("/api/v1/structuring", json=payload)
         assert response.status_code == 422
         assert response.json()["status"] == "error"
 
-    def test_visual_element_missing_from_returns_422(self):
+    def test_relationship_hint_missing_from_returns_422(self):
         payload = {
-            "text_blocks": ["A", "B"],
-            "visual_elements": [{"to": "B"}],
+            **VALID_PAYLOAD,
+            "relationship_hints": [{"to": "API", "label": "HTTP Request"}],
         }
         response = client.post("/api/v1/structuring", json=payload)
         assert response.status_code == 422
         assert response.json()["status"] == "error"
 
-    def test_visual_element_missing_to_returns_422(self):
+    def test_relationship_hint_missing_to_returns_422(self):
         payload = {
-            "text_blocks": ["A", "B"],
-            "visual_elements": [{"from": "A"}],
+            **VALID_PAYLOAD,
+            "relationship_hints": [{"from": "Frontend", "label": "HTTP Request"}],
+        }
+        response = client.post("/api/v1/structuring", json=payload)
+        assert response.status_code == 422
+        assert response.json()["status"] == "error"
+
+    def test_relationship_hint_missing_label_returns_422(self):
+        payload = {
+            **VALID_PAYLOAD,
+            "relationship_hints": [{"from": "Frontend", "to": "API"}],
         }
         response = client.post("/api/v1/structuring", json=payload)
         assert response.status_code == 422
         assert response.json()["status"] == "error"
 
     def test_missing_text_blocks_field_returns_422(self):
-        payload = {"visual_elements": [{"from": "A", "to": "B"}]}
+        payload = {k: v for k, v in VALID_PAYLOAD.items() if k != "text_blocks"}
         response = client.post("/api/v1/structuring", json=payload)
         assert response.status_code == 422
         assert response.json()["status"] == "error"
 
-    def test_missing_visual_elements_field_returns_422(self):
-        payload = {"text_blocks": ["A", "B"]}
+    def test_missing_relationship_hints_field_returns_422(self):
+        payload = {k: v for k, v in VALID_PAYLOAD.items() if k != "relationship_hints"}
+        response = client.post("/api/v1/structuring", json=payload)
+        assert response.status_code == 422
+        assert response.json()["status"] == "error"
+
+    def test_missing_grouped_elements_field_returns_422(self):
+        payload = {k: v for k, v in VALID_PAYLOAD.items() if k != "grouped_elements"}
+        response = client.post("/api/v1/structuring", json=payload)
+        assert response.status_code == 422
+        assert response.json()["status"] == "error"
+
+    def test_missing_detected_keywords_field_returns_422(self):
+        payload = {k: v for k, v in VALID_PAYLOAD.items() if k != "detected_keywords"}
+        response = client.post("/api/v1/structuring", json=payload)
+        assert response.status_code == 422
+        assert response.json()["status"] == "error"
+
+    def test_missing_context_groups_field_returns_422(self):
+        payload = {k: v for k, v in VALID_PAYLOAD.items() if k != "context_groups"}
         response = client.post("/api/v1/structuring", json=payload)
         assert response.status_code == 422
         assert response.json()["status"] == "error"
@@ -218,15 +265,15 @@ class TestInvalidPayloads:
         response = client.post("/api/v1/structuring", json=payload)
         assert response.status_code == 422
 
-    def test_null_visual_elements_returns_422(self):
-        payload = {**VALID_PAYLOAD, "visual_elements": None}
+    def test_null_relationship_hints_returns_422(self):
+        payload = {**VALID_PAYLOAD, "relationship_hints": None}
         response = client.post("/api/v1/structuring", json=payload)
         assert response.status_code == 422
 
-    def test_visual_elements_with_both_fields_missing_returns_422(self):
+    def test_relationship_hint_with_all_fields_missing_returns_422(self):
         payload = {
-            "text_blocks": ["A"],
-            "visual_elements": [{}],
+            **VALID_PAYLOAD,
+            "relationship_hints": [{}],
         }
         response = client.post("/api/v1/structuring", json=payload)
         assert response.status_code == 422
