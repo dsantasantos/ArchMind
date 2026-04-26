@@ -30,21 +30,32 @@ VALID_PAYLOAD = {
     ],
 }
 
-MOCK_LLM_RESPONSE = '[{"id":"c1","name":"Frontend","type":"frontend"},{"id":"c2","name":"API","type":"service"},{"id":"c3","name":"Database","type":"database"}]'
+MOCK_LLM_RESPONSE = (
+    '[{"id":"c1","name":"Frontend","type":"frontend","technology":"React","aliases":["React Application"]},'
+    '{"id":"c2","name":"API","type":"service","technology":"REST API","aliases":["Backend Service"]},'
+    '{"id":"c3","name":"Database","type":"database","technology":"SQL Server"}]'
+)
 
-MOCK_RELATIONSHIPS_RESPONSE = '[{"from":"c1","to":"c2","type":"http_request"},{"from":"c2","to":"c3","type":"database_query"}]'
+MOCK_RELATIONSHIPS_RESPONSE = (
+    '[{"from":"c1","to":"c2","type":"synchronous_request","protocol":"HTTP","description":"Frontend sends HTTP requests to API"},'
+    '{"from":"c2","to":"c3","type":"database_query","description":"API queries the database"}]'
+)
 
-MOCK_ARCHITECTURE_RESPONSE = "layered"
+MOCK_ARCHITECTURE_RESPONSE = (
+    '{"architecture_style":"3-tier architecture",'
+    '"communication_patterns":["request-response","synchronous communication"],'
+    '"confidence":0.93,"uncertainties":[]}'
+)
 
 MOCK_COMPONENTS = [
-    {"id": "c1", "name": "Frontend", "type": "frontend"},
-    {"id": "c2", "name": "API", "type": "service"},
-    {"id": "c3", "name": "Database", "type": "database"},
+    {"id": "c1", "name": "Frontend", "type": "frontend", "technology": "React", "aliases": ["React Application"]},
+    {"id": "c2", "name": "API", "type": "service", "technology": "REST API", "aliases": ["Backend Service"]},
+    {"id": "c3", "name": "Database", "type": "database", "technology": "SQL Server"},
 ]
 
 MOCK_RELATIONSHIPS = [
-    {"from": "c1", "to": "c2", "type": "http_request"},
-    {"from": "c2", "to": "c3", "type": "database_query"},
+    {"from": "c1", "to": "c2", "type": "synchronous_request", "protocol": "HTTP", "description": "Frontend sends HTTP requests to API"},
+    {"from": "c2", "to": "c3", "type": "database_query", "description": "API queries the database"},
 ]
 
 
@@ -120,7 +131,33 @@ class TestValidPayloads:
             response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         data = response.json()["data"]
         assert "architecture_style" in data
-        assert data["architecture_style"] == "layered"
+        assert data["architecture_style"] == "3-tier architecture"
+
+    def test_valid_payload_returns_communication_patterns(self):
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
+            response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
+        data = response.json()["data"]
+        assert "communication_patterns" in data
+        assert isinstance(data["communication_patterns"], list)
+        assert "request-response" in data["communication_patterns"]
+
+    def test_valid_payload_returns_confidence(self):
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
+            response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
+        data = response.json()["data"]
+        assert "confidence" in data
+        assert isinstance(data["confidence"], float)
+        assert 0.0 <= data["confidence"] <= 1.0
+
+    def test_valid_payload_returns_uncertainties(self):
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
+            response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
+        data = response.json()["data"]
+        assert "uncertainties" in data
+        assert isinstance(data["uncertainties"], list)
 
     def test_valid_payload_components_have_correct_fields(self):
         p1, p2, p3 = _patch_all_llms()
@@ -132,6 +169,7 @@ class TestValidPayloads:
             assert "id" in c
             assert "name" in c
             assert "type" in c
+            assert "technology" in c
 
     def test_valid_payload_component_types_are_valid(self):
         p1, p2, p3 = _patch_all_llms()
@@ -141,6 +179,15 @@ class TestValidPayloads:
         valid_types = {"frontend", "service", "database"}
         for c in components:
             assert c["type"] in valid_types
+
+    def test_valid_payload_components_aliases_are_list_when_present(self):
+        p1, p2, p3 = _patch_all_llms()
+        with p1, p2, p3:
+            response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
+        components = response.json()["data"]["components"]
+        for c in components:
+            if "aliases" in c:
+                assert isinstance(c["aliases"], list)
 
     def test_valid_payload_relationships_have_correct_fields(self):
         p1, p2, p3 = _patch_all_llms()
@@ -152,13 +199,14 @@ class TestValidPayloads:
             assert "from" in r
             assert "to" in r
             assert "type" in r
+            assert "description" in r
 
     def test_valid_payload_relationship_types_are_valid(self):
         p1, p2, p3 = _patch_all_llms()
         with p1, p2, p3:
             response = client.post("/api/v1/structuring", json=VALID_PAYLOAD)
         relationships = response.json()["data"]["relationships"]
-        valid_types = {"http_request", "database_query", "internal_call"}
+        valid_types = {"synchronous_request", "database_query", "database_response", "internal_call", "async_message"}
         for r in relationships:
             assert r["type"] in valid_types
 
@@ -179,9 +227,13 @@ class TestValidPayloads:
         body = response.json()
         assert "status" in body
         assert "data" in body
-        assert "components" in body["data"]
-        assert "relationships" in body["data"]
-        assert "architecture_style" in body["data"]
+        data = body["data"]
+        assert "components" in data
+        assert "relationships" in data
+        assert "architecture_style" in data
+        assert "communication_patterns" in data
+        assert "confidence" in data
+        assert "uncertainties" in data
 
 
 class TestInvalidPayloads:
@@ -287,16 +339,26 @@ class TestComponentRecognizer:
 
     def test_recognizer_parses_json_wrapped_in_markdown(self):
         from core.structuring.component_recognizer import _parse_components
-        text = '```json\n[{"id":"c1","name":"A","type":"frontend"}]\n```'
+        text = '```json\n[{"id":"c1","name":"A","type":"frontend","technology":"React"}]\n```'
         result = _parse_components(text)
         assert len(result) == 1
         assert result[0]["name"] == "A"
+        assert result[0]["technology"] == "React"
 
     def test_recognizer_parses_clean_json(self):
         from core.structuring.component_recognizer import _parse_components
         result = _parse_components(MOCK_LLM_RESPONSE)
         assert len(result) == 3
         assert result[0]["type"] == "frontend"
+        assert result[0]["technology"] == "React"
+
+    def test_recognizer_parses_json_with_nested_aliases_array(self):
+        from core.structuring.component_recognizer import _parse_components
+        # non-greedy regex would stop at first ] inside aliases, breaking the parse
+        text = '```json\n[{"id":"c1","name":"Frontend","type":"frontend","technology":"React","aliases":["React Application"]}]\n```'
+        result = _parse_components(text)
+        assert len(result) == 1
+        assert result[0]["aliases"] == ["React Application"]
 
 
 class TestRelationshipRecognizer:
@@ -306,10 +368,11 @@ class TestRelationshipRecognizer:
 
     def test_recognizer_parses_json_wrapped_in_markdown(self):
         from core.structuring.relationship_recognizer import _parse_relationships
-        text = '```json\n[{"from":"c1","to":"c2","type":"http_request"}]\n```'
+        text = '```json\n[{"from":"c1","to":"c2","type":"synchronous_request","protocol":"HTTP","description":"A calls B"}]\n```'
         result = _parse_relationships(text)
         assert len(result) == 1
-        assert result[0]["type"] == "http_request"
+        assert result[0]["type"] == "synchronous_request"
+        assert result[0]["protocol"] == "HTTP"
 
     def test_recognizer_parses_clean_json(self):
         from core.structuring.relationship_recognizer import _parse_relationships
@@ -321,18 +384,34 @@ class TestRelationshipRecognizer:
 
 
 class TestArchitectureRecognizer:
-    def test_parse_returns_first_word(self):
-        from core.structuring.architecture_recognizer import _parse_architecture_style
-        assert _parse_architecture_style("layered") == "layered"
+    def test_parse_returns_dict_on_valid_json(self):
+        from core.structuring.architecture_recognizer import _parse_architecture_result
+        raw = '{"architecture_style":"3-tier architecture","communication_patterns":["request-response"],"confidence":0.9,"uncertainties":[]}'
+        result = _parse_architecture_result(raw)
+        assert result["architecture_style"] == "3-tier architecture"
+        assert result["confidence"] == 0.9
+        assert result["communication_patterns"] == ["request-response"]
+        assert result["uncertainties"] == []
 
-    def test_parse_strips_whitespace(self):
-        from core.structuring.architecture_recognizer import _parse_architecture_style
-        assert _parse_architecture_style("  microservices extra") == "microservices"
+    def test_parse_returns_fallback_on_invalid_json(self):
+        from core.structuring.architecture_recognizer import _parse_architecture_result
+        result = _parse_architecture_result("not json")
+        assert result["architecture_style"] == "unknown"
+        assert result["confidence"] == 0.0
+        assert result["communication_patterns"] == []
+        assert result["uncertainties"] == []
 
-    def test_parse_returns_unknown_on_empty(self):
-        from core.structuring.architecture_recognizer import _parse_architecture_style
-        assert _parse_architecture_style("") == "unknown"
+    def test_parse_returns_dict_on_markdown_wrapped_json(self):
+        from core.structuring.architecture_recognizer import _parse_architecture_result
+        raw = '```json\n{"architecture_style":"microservices","communication_patterns":[],"confidence":0.8,"uncertainties":["unclear boundaries"]}\n```'
+        result = _parse_architecture_result(raw)
+        assert result["architecture_style"] == "microservices"
+        assert result["confidence"] == 0.8
 
-    def test_parse_lowercases_result(self):
-        from core.structuring.architecture_recognizer import _parse_architecture_style
-        assert _parse_architecture_style("LAYERED") == "layered"
+    def test_parse_fills_missing_fields_with_fallback(self):
+        from core.structuring.architecture_recognizer import _parse_architecture_result
+        result = _parse_architecture_result('{"architecture_style":"monolith"}')
+        assert result["architecture_style"] == "monolith"
+        assert result["communication_patterns"] == []
+        assert result["confidence"] == 0.0
+        assert result["uncertainties"] == []

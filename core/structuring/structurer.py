@@ -23,9 +23,12 @@ def process(data: StructuringInput) -> dict:
     components = recognize_components(data)
     relationships = recognize_relationships(components, data)
     context_groups = [g.model_dump() for g in data.context_groups]
-    architecture_style = recognize_architecture_style(components, relationships, context_groups)
+    arch_result = recognize_architecture_style(components, relationships, context_groups)
     return {
         "components": components,
         "relationships": relationships,
-        "architecture_style": architecture_style,
+        "architecture_style": arch_result.get("architecture_style", "unknown"),
+        "communication_patterns": arch_result.get("communication_patterns", []),
+        "confidence": arch_result.get("confidence", 0.0),
+        "uncertainties": arch_result.get("uncertainties", []),
     }

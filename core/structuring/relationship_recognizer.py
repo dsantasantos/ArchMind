@@ -31,7 +31,7 @@ def _parse_relationships(text: str) -> list[dict]:
     except json.JSONDecodeError:
         pass
 
-    match = re.search(r"\[.*?\]", text, re.DOTALL)
+    match = re.search(r"\[.*\]", text, re.DOTALL)
     if match:
         try:
             result = json.loads(match.group())
