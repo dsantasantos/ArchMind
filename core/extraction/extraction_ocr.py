@@ -8,7 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from extractor import DiagramExtractor
 
 # Caminho do arquivo conforme sua estrutura local
-FILE_PATH = "core/extraction/diagrama.png"
+FILE_PATH = "ArchMind\core\extraction\diagrama.png"
 
 def run_final_extraction_test():
     print(f"--- Iniciando Pipeline de Extração ArchMind ---")

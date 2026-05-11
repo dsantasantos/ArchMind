@@ -26,10 +26,11 @@ from collections import defaultdict
 # Knowledge base
 # ---------------------------------------------------------------------------
 
-# Tier 1: palavras que indicam explicitamente uma camada nomeada
+# Tier 1: palavras que indicam explicitamente uma camada nomeada.
+# IMPORTANTE: só usar termos inequívocos. "Nível", "tier" aparecem em
+# títulos C4 ("Nível 2: Contêiner") e dariam falsos positivos.
 LAYER_ANCHOR_WORDS = [
     "layer", "camada",
-    "tier", "nivel", "nível",
 ]
 
 # Tier 2: containers comuns — match EXATO (evita "Database Queries" virar âncora)
@@ -44,15 +45,42 @@ CONTAINER_ANCHOR_WORDS = {
     "load balancer", "reverse proxy",
 }
 
+# Tier 3: palavras-chave que indicam REGIÃO/CONTAINER quando aparecem como
+# parte do texto. Match parcial mas requer pelo menos 2 palavras no texto
+# (filtra "Service Registry" de virar âncora só por ter "registry").
+# Útil para diagramas C4 e similares que usam títulos descritivos.
+CONTAINER_KEYWORDS = [
+    "cluster", "namespace", "banco de dados", "database server",
+    "service mesh", "data store", "datastore",
+    "kubernetes cluster", "kafka cluster", "redis cluster",
+    "namespace de", "grupo de", "região de", "regiao de",
+    "ingress controller",
+]
+
 # Padrões de label de seta — texto curto descrevendo um fluxo/protocolo.
 # Removidos "query/queries" sozinhos pois são ambíguos (podem ser conteúdo
 # de banco). Mantemos só combinações típicas de comunicação.
 FLOW_PATTERNS = [
+    # Comunicação HTTP/API
     "http request", "http response", "https request", "https response",
     "xmlhttp", "xml http", "ajax", "api call", "rest call",
     "database queries", "database query",
     "send request", "fetch data", "push event", "publish message",
-    "rpc call", "grpc call", "websocket",
+    "rpc call", "grpc call", "websocket", "chamadas api", "chamada api",
+    # Verbos de ação em português (labels comuns em diagramas BR)
+    "roteia ", "verifica ", "publica ", "consome ", "consulta ",
+    "gerencia ", "descoberta de ", "lê/grava", "le/grava", "lê ", "grava ",
+    "envia ", "recebe ", "processa ", "armazena ",
+    # Verbos em inglês
+    "routes ", "verifies ", "publishes ", "consumes ", "queries ",
+    "manages ", "discovers ", "reads ", "writes ", "sends ",
+    "receives ", "processes ", "stores ",
+    # Padrões "Verb /path" típicos de gateway/ingress
+    "/auth", "/products", "/orders", "/api/",
+    # Outros padrões comuns
+    "(grpc)", "(rest)", "(http)", "(https)", "(sql)",
+    "comunicação", "comunicacao", "interface do usuário", "interface do usuario",
+    "ponto de entrada",
 ]
 
 # Termos isolados que SÓ são flow se forem o texto inteiro (ou quase)
@@ -62,11 +90,23 @@ FLOW_STANDALONE = {
 }
 
 SKIP_WORDS = {
+    # Títulos/metadados genéricos
     "diagrama", "diagram", "architecture", "arquitetura",
     "summary", "layers", "layer legend",
+    "diagrama de arquitetura",
+    # Notação C4
+    "c4 nível", "c4 nivel", "c4 level", "nível 1", "nível 2", "nivel 1",
+    "nivel 2", "nivel 3", "context diagram", "container diagram",
+    "contêiner", "conteiner",
+    # Sistemas específicos / créditos
     "sistema de gestão", "erp-adj", "erp",
-    "diagrama de arquitetura", "internet",
-    "@", "marianabernado",
+    "internet", "@", "marianabernado",
+    # Subtítulos comuns que viram falsos membros
+    "interface do usuário", "interface do usuario",
+    "ponto de entrada", "ponto de entrada do cluster",
+    "comunicação assíncrona interna", "comunicacao assincrona interna",
+    "armazenamento fora do cluster",
+    "descoberta de serviços interna", "descoberta de servicos interna",
 }
 
 KNOWLEDGE_BASE = {
@@ -104,18 +144,41 @@ KNOWLEDGE_BASE = {
     "sql server":   "database_system",
     "sql":          "relational_db",
     "mongo":        "nosql_db",
+    "mongodb":      "nosql_db",
+    "neo4j":        "graph_db",
+    "elastic":      "search_engine",
+    "elasticsearch":"search_engine",
+    "cassandra":    "nosql_db",
+    "dynamodb":     "nosql_db",
+    "pg":           "relational_db",
     "redis":        "cache_layer",
+    "memcached":    "cache_layer",
     "kafka":        "message_broker",
     "rabbitmq":     "message_broker",
+    "router":       "network_routing",
+    "proxy":        "reverse_proxy",
+    "s3":           "object_storage",
+    "blob":         "object_storage",
+    "stream":       "streaming_api",
+    "batch":        "batch_processing",
+    "crawler":      "data_ingestion",
+    "captcha":      "security_service",
+    "auth":         "authentication",
+    "authentication":"authentication",
+    "authorization":"authorization",
     "nginx":        "reverse_proxy",
     "docker":       "containerization",
     "kubernetes":   "orchestration",
     "aws":          "cloud_provider",
     "azure":        "cloud_provider",
     "gcp":          "cloud_provider",
-    "auth":         "authentication",
     "cache":        "cache_layer",
     "gateway":      "api_gateway",
+    "dsl":          "domain_specific_language",
+    "indexing":     "data_indexing",
+    "replication":  "data_replication",
+    "integration":  "integration_layer",
+    "storage":      "storage_layer",
 }
 
 # Palavras da âncora → palavras que indicam pertencimento de um componente
@@ -176,27 +239,66 @@ def _is_layer_anchor(text):
     if any(w in tl for w in LAYER_ANCHOR_WORDS):
         return True
     # Tier 2: o texto inteiro é exatamente um nome de container
-    return tl in CONTAINER_ANCHOR_WORDS
+    if tl in CONTAINER_ANCHOR_WORDS:
+        return True
+    # Tier 3: contém palavra-chave de container E tem 2+ palavras
+    # (evita falsos positivos em textos curtos como "Cluster" sozinho)
+    words = tl.split()
+    if len(words) >= 2:
+        for kw in CONTAINER_KEYWORDS:
+            if kw in tl:
+                return True
+    return False
+
+# Verbos em 3ª pessoa que normalmente aparecem em labels de seta
+# (não em nomes de componente). Match no INÍCIO do texto.
+FLOW_VERB_PREFIXES = (
+    # Português
+    "roteia ", "verifica ", "publica ", "consome ", "consulta ",
+    "gerencia ", "lê ", "le ", "grava ", "envia ", "recebe ",
+    "processa ", "armazena ", "usa ", "chama ", "invoca ",
+    # Inglês
+    "routes ", "verifies ", "publishes ", "consumes ", "queries ",
+    "manages ", "reads ", "writes ", "sends ", "receives ",
+    "processes ", "stores ", "uses ", "calls ", "invokes ",
+    "fetches ", "pushes ",
+)
+
 
 def _is_flow_text(text):
     """
     Detecta texto que é label de seta/fluxo. Critérios:
-      1. Contém padrão composto típico (ex: "http request", "database queries")
-      2. OU é exatamente um termo standalone (ex: "Response", "HTTP")
-      3. Texto curto (< 4 palavras) é mais provável de ser flow
+      1. Começa com verbo de ação em 3ª pessoa ("Roteia /auth", "Verifica Token")
+      2. Contém padrão composto típico (ex: "http request", "chamadas API")
+      3. É exatamente um termo standalone (ex: "Response", "HTTP")
+      4. Tem padrão "Verb (Protocol)" — ex: "Verifica Token (gRPC)"
     """
     tl = text.lower().strip()
-    # Padrões compostos — match em qualquer parte
+
+    # 1. Verbo no início — sinal muito forte de label de seta
+    for v in FLOW_VERB_PREFIXES:
+        if tl.startswith(v):
+            return True
+
+    # 2. Padrões compostos em qualquer parte do texto
     for pat in FLOW_PATTERNS:
         if pat in tl:
             return True
-    # Standalone — match exato (texto inteiro é só essa palavra)
+
+    # 3. Standalone exato
     if tl in FLOW_STANDALONE:
         return True
-    # Detecta padrão "xmlHttp Response", "AJAX Response", etc.
+
+    # 4. Texto curto contendo response/request
     words = tl.split()
     if len(words) <= 3 and any(w in tl for w in ["response", "request"]):
         return True
+
+    # 5. Padrão "X (gRPC)" / "X (SQL)" — protocolo entre parênteses
+    if any(f"({p})" in tl for p in ["grpc", "rest", "http", "https", "sql",
+                                     "rpc", "tcp", "udp", "amqp"]):
+        return True
+
     return False
 
 def _is_skip(text):
@@ -259,7 +361,7 @@ def _detect_mode(anchors, img_w, img_h):
       'legend'     — anchors em coluna vertical na BORDA (>70% ou <30% X)
       'vertical'   — anchors em coluna vertical no CENTRO
       'horizontal' — anchors espalhados horizontalmente na mesma faixa Y
-      'proximity'  — fallback genérico
+      'proximity'  — anchors espalhados nos 2 eixos (containers irregulares)
     """
     if len(anchors) < 2:
         return "proximity"
@@ -270,19 +372,23 @@ def _detect_mode(anchors, img_w, img_h):
     std_y  = float(np.std(ys))
     mean_x = float(np.mean(xs))
 
-    is_vertical_cluster  = std_x < img_w * 0.10   # anchors têm X parecido
+    is_vertical_cluster  = std_x < img_w * 0.10
     is_at_edge           = mean_x > img_w * 0.70 or mean_x < img_w * 0.30
-    is_horizontal_spread = std_x > img_w * 0.12   # anchors espalhados em X
-    is_same_y_level      = std_y < img_h * 0.10   # anchors na mesma altura
+    is_horizontal_spread = std_x > img_w * 0.12
+    is_same_y_level      = std_y < img_h * 0.10
+    is_spread_both       = std_x > img_w * 0.15 and std_y > img_h * 0.15
 
+    # Anchors espalhados em ambos os eixos → containers distintos.
+    # Cada membro vai para o container mais próximo (modo proximity).
+    if is_spread_both:
+        return "proximity"
     if is_vertical_cluster and is_at_edge:
         return "legend"
-    elif is_horizontal_spread and is_same_y_level:
+    if is_horizontal_spread and is_same_y_level:
         return "horizontal"
-    elif is_vertical_cluster:
+    if is_vertical_cluster:
         return "vertical"
-    else:
-        return "proximity"
+    return "proximity"
 
 
 # ---------------------------------------------------------------------------
@@ -290,22 +396,48 @@ def _detect_mode(anchors, img_w, img_h):
 # ---------------------------------------------------------------------------
 
 def _build_y_zones(anchors):
+    """
+    Constrói zonas Y para atribuição de membros aos anchors verticais.
+
+    A zona de cada anchor vai do ponto médio com o anchor anterior até o
+    ponto médio com o próximo. Para os anchors das pontas (primeiro e
+    último), o limite externo é uma distância proporcional ao espaçamento
+    típico entre anchors (não infinito) — isso evita que membros muito
+    abaixo do último layer (ex: "Doctrine ORM" abaixo de "Persistance
+    Layer") sejam erroneamente atribuídos a ele.
+    """
     sorted_a = sorted(enumerate(anchors), key=lambda x: x[1]["center"][1])
     zones = []
     n = len(sorted_a)
+
+    # Espaçamento médio entre anchors consecutivos
+    if n >= 2:
+        gaps = [sorted_a[k+1][1]["center"][1] - sorted_a[k][1]["center"][1]
+                for k in range(n - 1)]
+        avg_gap = sum(gaps) / len(gaps)
+    else:
+        avg_gap = 200  # fallback
+
     for k, (orig_idx, anchor) in enumerate(sorted_a):
         yc = anchor["center"][1]
-        y_min = -float("inf") if k == 0 else (sorted_a[k-1][1]["center"][1] + yc) / 2
-        y_max =  float("inf") if k == n-1 else (yc + sorted_a[k+1][1]["center"][1]) / 2
+        if k == 0:
+            y_min = yc - avg_gap / 2     # antes era -inf
+        else:
+            y_min = (sorted_a[k-1][1]["center"][1] + yc) / 2
+        if k == n - 1:
+            y_max = yc + avg_gap / 2     # antes era +inf
+        else:
+            y_max = (yc + sorted_a[k+1][1]["center"][1]) / 2
         zones.append((orig_idx, y_min, y_max))
     return zones
 
 def _assign_by_y_zone(member, zones):
+    """Retorna idx do anchor cuja zona contém o membro, ou None se fora de todas."""
     cy = member["center"][1]
     for orig_idx, y_min, y_max in zones:
         if y_min <= cy <= y_max:
             return orig_idx
-    return min(zones, key=lambda z: min(abs(cy - z[1]), abs(cy - z[2])))[0]
+    return None  # fora de qualquer zona — membro não pertence a nenhum anchor
 
 
 # ---------------------------------------------------------------------------
@@ -444,6 +576,11 @@ def _group_members(anchors, members, img_w, img_h):
         # ── VERTICAL: Y-zone do centroide ────────────────────────────────
         if mode == "vertical" and y_zones:
             anchor_idx = _assign_by_y_zone(cluster_proxy, y_zones)
+            if anchor_idx is None:
+                # Cluster fora de todas as zonas (acima do primeiro anchor
+                # ou abaixo do último por mais de meio-gap) → não pertence
+                # a nenhum layer.
+                continue
 
         # ── LEGEND: semântico do texto agregado ──────────────────────────
         elif mode == "legend":
@@ -482,6 +619,185 @@ def _group_members(anchors, members, img_w, img_h):
             result[anchor_idx].append(members[i]["text"])
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Fallback: agrupamento por cor (quando não há âncoras de camada)
+# ---------------------------------------------------------------------------
+
+def _sample_component_bg(img, rect, expand=0.6):
+    """
+    Amostra cor HSV média do fundo de um componente. Expande o rect do texto
+    para capturar o fundo da caixa colorida ao redor, ignorando pixels muito
+    brancos/cinzas (fundo neutro) e muito saturados de preto (texto).
+    """
+    h_img, w_img = img.shape[:2]
+    x0, y0, x1, y1 = rect
+    pad_x = int((x1 - x0) * expand)
+    pad_y = int((y1 - y0) * expand)
+    sx0 = max(0,     int(x0) - pad_x)
+    sy0 = max(0,     int(y0) - pad_y)
+    sx1 = min(w_img, int(x1) + pad_x)
+    sy1 = min(h_img, int(y1) + pad_y)
+    roi = img[sy0:sy1, sx0:sx1]
+    if roi.size == 0:
+        return None
+    hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+    # Exige saturação > 30 e valor entre 80-240: descarta branco/preto/cinza
+    mask = cv2.inRange(hsv, (0, 30, 80), (180, 255, 240))
+    if cv2.countNonZero(mask) < 20:
+        return None
+    return tuple(cv2.mean(hsv, mask=mask)[:3])  # (H, S, V)
+
+
+def _color_similar(c1, c2, h_tol=8, s_tol=80, v_tol=80):
+    """
+    Duas cores HSV são similares (mesmo "tipo" visual).
+    h_tol=8 é restritivo o suficiente para separar:
+      - vermelho saturado (H≈175) de laranja (H≈10-15) [distância circular ≈ 15-20]
+      - azul claro (H≈100) de azul escuro (H≈115)
+    Sem isso, laranja e vermelho vermelho-rosa do material design ficam fundidos.
+    """
+    if c1 is None or c2 is None:
+        return False
+    dh = min(abs(c1[0] - c2[0]), 180 - abs(c1[0] - c2[0]))
+    return dh <= h_tol and abs(c1[1] - c2[1]) <= s_tol and abs(c1[2] - c2[2]) <= v_tol
+
+
+def _hue_to_label(hue):
+    """Converte matiz HSV em rótulo descritivo da cor (genérico)."""
+    if hue is None:
+        return "Group"
+    # Vermelho fica nas duas pontas do círculo HSV (0-8 e 168-180)
+    if hue < 8 or hue >= 168:     return "Red Group"
+    if hue < 22:                  return "Orange Group"
+    if hue < 35:                  return "Yellow Group"
+    if hue < 85:                  return "Green Group"
+    if hue < 100:                 return "Cyan Group"
+    if hue < 135:                 return "Blue Group"
+    return "Purple Group"
+
+
+def _detect_arrows_geometric(img, members, anchors, max_arrows=50):
+    """
+    Detecta setas via Canny + HoughLinesP quando não há labels de texto.
+    Retorna lista de (from_node, to_node) baseada em segmentos de linha
+    cujas pontas caem perto de componentes diferentes.
+
+    Sem detecção de direção real — assume from=esquerda/topo, to=direita/baixo.
+    Usado como fallback quando o diagrama não tem labels sobre as setas.
+    """
+    h_img, w_img = img.shape[:2]
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+    # Canny mais sensível (thresholds menores) para pegar linhas finas como
+    # setas verdes claras de diagramas de fluxo de dados.
+    edges = cv2.Canny(blurred, 30, 100, apertureSize=3)
+
+    # Linhas mais curtas também são aceitas (setas curtas entre componentes próximos)
+    min_len = max(25, int(min(h_img, w_img) * 0.025))
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=25,
+                            minLineLength=min_len, maxLineGap=20)
+
+    if lines is None:
+        return []
+
+    nodes = members + anchors
+    if len(nodes) < 2:
+        return []
+
+    # Raio de proximidade mais generoso — endpoints de seta nem sempre tocam
+    # exatamente o texto do componente, mas a borda da caixa.
+    proximity_radius = max(50, int(min(h_img, w_img) * 0.06))
+
+    def _nearest_node(pt):
+        best, best_dist = None, float("inf")
+        for n in nodes:
+            d = _distance(n["center"], pt)
+            if d < best_dist:
+                best, best_dist = n, d
+        return best, best_dist
+
+    found_pairs = []
+    seen = set()
+
+    for line in lines[:300]:
+        x1, y1, x2, y2 = line[0]
+        n1, d1 = _nearest_node((x1, y1))
+        n2, d2 = _nearest_node((x2, y2))
+        if n1 is None or n2 is None or n1 is n2:
+            continue
+        if d1 > proximity_radius or d2 > proximity_radius:
+            continue
+
+        # Ordena por X (mais à esquerda = from) ou Y se for vertical
+        if abs(x2 - x1) >= abs(y2 - y1):
+            src, dst = (n1, n2) if n1["center"][0] < n2["center"][0] else (n2, n1)
+        else:
+            src, dst = (n1, n2) if n1["center"][1] < n2["center"][1] else (n2, n1)
+
+        key = (src["text"], dst["text"])
+        if key in seen:
+            continue
+        seen.add(key)
+        found_pairs.append((src, dst))
+
+        if len(found_pairs) >= max_arrows:
+            break
+
+    return found_pairs
+
+
+def _group_by_color(members, img):
+    """
+    Agrupa membros por cor de fundo usando clusterização adaptativa:
+    1. Amostra cor HSV de cada membro
+    2. Agrupa hues que estão a <= 12° uns dos outros (clustering greedy)
+    3. Rotula cada cluster pela cor dominante
+
+    Isso descobre dinamicamente quantas cores distintas existem no diagrama,
+    em vez de comparar par-a-par com um único threshold global. Resolve o
+    caso "vermelho vs laranja" do diagrama Neoway (H≈175 e H≈12, dist
+    circular ≈17° — fica em clusters separados).
+    """
+    samples = []
+    for m in members:
+        color = _sample_component_bg(img, m["rect"])
+        if color is not None:
+            samples.append({"member": m, "color": color, "hue": color[0]})
+
+    if not samples:
+        return []
+
+    # Clustering greedy de hues com tolerância circular de 12°
+    HUE_TOL = 12
+    clusters = []   # lista de {hues: [...], members: [...]}
+
+    for s in samples:
+        placed = False
+        for cl in clusters:
+            avg_hue = sum(cl["hues"]) / len(cl["hues"])
+            dh = min(abs(s["hue"] - avg_hue), 180 - abs(s["hue"] - avg_hue))
+            if dh <= HUE_TOL:
+                cl["hues"].append(s["hue"])
+                cl["members"].append(s["member"])
+                placed = True
+                break
+        if not placed:
+            clusters.append({"hues": [s["hue"]], "members": [s["member"]]})
+
+    # Monta grupos finais (só os com >= 2 membros)
+    groups = []
+    for cl in clusters:
+        if len(cl["members"]) < 2:
+            continue
+        avg_hue = sum(cl["hues"]) / len(cl["hues"])
+        groups.append({
+            "label": _hue_to_label(avg_hue),
+            "texts": [m["text"] for m in cl["members"]],
+        })
+
+    return groups
 
 
 # ---------------------------------------------------------------------------
@@ -529,18 +845,26 @@ class DiagramExtractor:
                 members.append(b)
 
         # ── 5. Agrupamento ────────────────────────────────────────────────
-        anchor_members = _group_members(anchors, members, w_img, h_img)
+        # Se há âncoras de camada → agrupa por âncora (modos vertical/legend/horizontal).
+        # Se NÃO há âncoras → agrupa por COR de fundo dos componentes (cada
+        # cor distinta vira um grupo). Útil para diagramas de fluxo de dados
+        # complexos sem rótulos de camada (ex: diagramas estilo Neoway).
+        context_groups = []
+        grouped_elements = []
 
-        # ── 6. context_groups e grouped_elements ─────────────────────────
-        # Inclui anchors mesmo sem membros — eles representam containers/
-        # camadas reais do diagrama (ex: "Databases" no diagrama Web Server
-        # é uma caixa cilíndrica sem texto secundário interno).
-        context_groups = []; grouped_elements = []
-        for i, anchor in enumerate(anchors):
-            mems = list(dict.fromkeys(anchor_members[i]))
-            name = anchor["text"].split("\n")[0].strip()
-            context_groups.append({"name": name, "contains": mems})
-            grouped_elements.append({"label": name, "texts": mems})
+        if anchors:
+            anchor_members = _group_members(anchors, members, w_img, h_img)
+            for i, anchor in enumerate(anchors):
+                mems = list(dict.fromkeys(anchor_members[i]))
+                name = anchor["text"].split("\n")[0].strip()
+                context_groups.append({"name": name, "contains": mems})
+                grouped_elements.append({"label": name, "texts": mems})
+        else:
+            # Fallback: agrupamento por cor de fundo dos componentes
+            color_groups = _group_by_color(members, img)
+            for g in color_groups:
+                context_groups.append({"name": g["label"], "contains": g["texts"]})
+                grouped_elements.append({"label": g["label"], "texts": g["texts"]})
 
         # ── 7. relationship_hints ─────────────────────────────────────────
         # Estratégia melhorada:
@@ -610,6 +934,21 @@ class DiagramExtractor:
             relationship_hints.append({
                 "from": src["text"], "to": dst["text"], "label": fb["text"],
             })
+
+        # ── 7b. Fallback geométrico ───────────────────────────────────────
+        # Se não conseguimos detectar relações via labels de fluxo, tentamos
+        # detectar setas pela forma (Canny + HoughLines). Útil para diagramas
+        # de fluxo de dados onde setas não têm texto sobre elas.
+        if not relationship_hints and len(all_nodes) >= 2:
+            geometric_pairs = _detect_arrows_geometric(img, members, anchors)
+            for src, dst in geometric_pairs:
+                key = (src["text"], dst["text"])
+                if key in seen_rels:
+                    continue
+                seen_rels.add(key)
+                relationship_hints.append({
+                    "from": src["text"], "to": dst["text"], "label": None,
+                })
 
         # ── 8. detected_keywords ─────────────────────────────────────────
         detected_keywords = []; seen_kw = set()
