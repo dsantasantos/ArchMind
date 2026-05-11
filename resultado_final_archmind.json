@@ -1,0 +1,115 @@
+{
+    "text_blocks": [
+        "Architecture Summary (from the JSON)",
+        "Layers",
+        "Database (SQL Server)",
+        "Frontend (React Application)",
+        "API (Backend Service)",
+        "HTTP Request",
+        "Database Queries",
+        "Frontend Layer",
+        "API Layer",
+        "REST API",
+        "Data Layer"
+    ],
+    "grouped_elements": [
+        {
+            "label": "Frontend Layer",
+            "texts": [
+                "Frontend (React Application)"
+            ]
+        },
+        {
+            "label": "API Layer",
+            "texts": [
+                "API (Backend Service)",
+                "REST API"
+            ]
+        },
+        {
+            "label": "Data Layer",
+            "texts": [
+                "Database (SQL Server)"
+            ]
+        }
+    ],
+    "relationship_hints": [
+        {
+            "from": "Frontend (React Application)",
+            "to": "API (Backend Service)",
+            "label": "HTTP Request"
+        },
+        {
+            "from": "API (Backend Service)",
+            "to": "Database (SQL Server)",
+            "label": "Database Queries"
+        }
+    ],
+    "context_groups": [
+        {
+            "name": "Frontend Layer",
+            "contains": [
+                "Frontend (React Application)"
+            ]
+        },
+        {
+            "name": "API Layer",
+            "contains": [
+                "API (Backend Service)",
+                "REST API"
+            ]
+        },
+        {
+            "name": "Data Layer",
+            "contains": [
+                "Database (SQL Server)"
+            ]
+        }
+    ],
+    "detected_keywords": [
+        {
+            "text": "Architecture Summary (from the JSON)",
+            "hint": "data_format"
+        },
+        {
+            "text": "Database (SQL Server)",
+            "hint": "database_system"
+        },
+        {
+            "text": "Database (SQL Server)",
+            "hint": "relational_db"
+        },
+        {
+            "text": "Frontend (React Application)",
+            "hint": "frontend_layer"
+        },
+        {
+            "text": "Frontend (React Application)",
+            "hint": "frontend_framework"
+        },
+        {
+            "text": "API (Backend Service)",
+            "hint": "api_architecture_style"
+        },
+        {
+            "text": "API (Backend Service)",
+            "hint": "service_layer"
+        },
+        {
+            "text": "HTTP Request",
+            "hint": "communication_protocol"
+        },
+        {
+            "text": "Frontend Layer",
+            "hint": "frontend_layer"
+        },
+        {
+            "text": "API Layer",
+            "hint": "api_architecture_style"
+        },
+        {
+            "text": "REST API",
+            "hint": "api_architecture_style"
+        }
+    ]
+}
