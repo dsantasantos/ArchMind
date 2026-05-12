@@ -968,3 +968,14 @@ class DiagramExtractor:
             "context_groups":     context_groups,
             "detected_keywords":  detected_keywords,
         }
+
+
+def extract(image_path: str) -> dict:
+    """Helper function para facilitar o uso direto da classe DiagramExtractor."""
+    extractor = DiagramExtractor()
+    return extractor.extract(image_path)
+
+
+def extract_from_image(image_path: str) -> dict:
+    """Alias de extract() para compatibilidade com extraction_router."""
+    return extract(image_path)
