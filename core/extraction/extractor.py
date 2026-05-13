@@ -811,9 +811,27 @@ class DiagramExtractor:
         self.min_conf = ocr_confidence
 
     def extract(self, image_path: str) -> dict:
-        img = cv2.imread(image_path)
+        # cv2.imread tem bug no Windows com caminhos contendo caracteres
+        # não-ASCII (acentos, espaços especiais). Usar np.fromfile +
+        # cv2.imdecode contorna isso porque a leitura do arquivo é feita
+        # pelo Python (que suporta Unicode em paths) e o OpenCV só decodifica
+        # os bytes.
+        from pathlib import Path
+        p = Path(image_path)
+        if not p.exists():
+            raise FileNotFoundError(f"Arquivo não existe: {image_path}")
+
+        try:
+            data = np.fromfile(str(p), dtype=np.uint8)
+            img  = cv2.imdecode(data, cv2.IMREAD_COLOR)
+        except Exception as e:
+            raise IOError(f"Falha ao ler imagem {image_path}: {e}")
+
         if img is None:
-            raise FileNotFoundError(f"Não foi possível abrir: {image_path}")
+            raise IOError(
+                f"Não foi possível decodificar a imagem: {image_path}. "
+                f"Formato suportado? Arquivo corrompido?"
+            )
         h_img, w_img = img.shape[:2]
 
         # ── 1. OCR ──────────────────────────────────────────────────────
@@ -970,12 +988,114 @@ class DiagramExtractor:
         }
 
 
-def extract(image_path: str) -> dict:
-    """Helper function para facilitar o uso direto da classe DiagramExtractor."""
-    extractor = DiagramExtractor()
-    return extractor.extract(image_path)
+# ═══════════════════════════════════════════════════════════════════════════
+# API PÚBLICA — funções utilizadas pelos endpoints do projeto
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# O DiagramExtractor mantém estado (modelos do EasyOCR carregados em memória,
+# ~200 MB). Mantemos uma instância singleton lazy-loaded para evitar recarregar
+# os modelos a cada request.
+
+import base64 as _base64
+import tempfile as _tempfile
+from pathlib import Path as _Path
+
+_singleton_extractor: "DiagramExtractor | None" = None
 
 
-def extract_from_image(image_path: str) -> dict:
-    """Alias de extract() para compatibilidade com extraction_router."""
-    return extract(image_path)
+def _get_extractor() -> "DiagramExtractor":
+    """Retorna a instância singleton do extractor, criando se necessário."""
+    global _singleton_extractor
+    if _singleton_extractor is None:
+        _singleton_extractor = DiagramExtractor()
+    return _singleton_extractor
+
+
+def extract(filename: str) -> dict:
+    """
+    Função pura usada pelo pipeline (upload.py):
+      raw_data = extract(filename)
+
+    Recebe o caminho de uma imagem e retorna o JSON cru da extração OCR.
+
+    Args:
+        filename: caminho absoluto ou relativo para a imagem (.png/.jpg/.jpeg).
+
+    Returns:
+        dict com chaves: text_blocks, grouped_elements, relationship_hints,
+        context_groups, detected_keywords.
+
+    Raises:
+        FileNotFoundError: se o arquivo não existir.
+        IOError: se a imagem não puder ser decodificada.
+        ValueError: para outros erros de processamento.
+    """
+    if not filename:
+        raise ValueError("filename é obrigatório")
+    return _get_extractor().extract(filename)
+
+
+def extract_from_image(image_base64: str, media_type: str = "image/png") -> dict:
+    """
+    Função pura usada pelo endpoint /extraction (extraction.py):
+      result = extract_from_image(image_base64, media_type=media_type)
+
+    Recebe a imagem em base64 e processa em arquivo temporário (o OpenCV
+    precisa de um caminho em disco para decodificar formatos como WebP/GIF
+    de forma estável).
+
+    Args:
+        image_base64: bytes da imagem codificados em base64 (sem prefixo data URI).
+        media_type:   "image/png", "image/jpeg" ou "image/webp".
+
+    Returns:
+        dict com o JSON da extração.
+
+    Raises:
+        ValueError: se base64 inválido, media_type não suportado, ou erro de processamento.
+    """
+    if not image_base64:
+        raise ValueError("image_base64 é obrigatório")
+
+    ext_map = {
+        "image/png":  ".png",
+        "image/jpg":  ".jpg",
+        "image/jpeg": ".jpg",
+        "image/webp": ".webp",
+        "image/gif":  ".gif",
+        "image/bmp":  ".bmp",
+    }
+    suffix = ext_map.get(media_type.lower())
+    if suffix is None:
+        raise ValueError(
+            f"media_type não suportado: {media_type!r}. "
+            f"Use um de: {sorted(ext_map.keys())}"
+        )
+
+    # Decodifica base64
+    try:
+        image_bytes = _base64.b64decode(image_base64, validate=True)
+    except Exception as e:
+        raise ValueError(f"base64 inválido: {e}")
+
+    if not image_bytes:
+        raise ValueError("imagem vazia após decodificar base64")
+
+    # Persiste em arquivo temporário (delete=False para fechar o handle no Windows)
+    tmp_path: _Path | None = None
+    try:
+        with _tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(image_bytes)
+            tmp_path = _Path(tmp.name)
+
+        return _get_extractor().extract(str(tmp_path))
+
+    except (FileNotFoundError, IOError) as e:
+        # Normaliza erros de IO/decodificação em ValueError, como o endpoint espera
+        raise ValueError(str(e))
+    finally:
+        if tmp_path and tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass  # tempfile leak não deve quebrar a request
