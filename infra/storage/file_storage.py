@@ -1,31 +1,27 @@
 """
-Storage de imagens do ArchMind.
+infra/storage/file_storage.py — persistência de imagens em disco.
 
-Persiste uploads em disco com identificador único e mantém um registry
-JSON com metadados (nome original, mime, datas). API agnóstica de FastAPI
-para poder ser usada de qualquer endpoint ou worker.
+Camada de infraestrutura pura: trabalha com bytes brutos e nome do arquivo.
+Não conhece HTTP, upload, base64, URL etc. Quem cuida disso são as rotas
+em `api/routes/`.
 
 Layout em disco:
     storage/
     ├── uploads/
-    │   ├── <image_id>.png
-    │   ├── <image_id>.jpg
-    │   └── ...
-    └── registry.json     # mapeamento image_id → metadata
+    │   └── <image_id>.<ext>
+    └── registry.json
 """
 
 import json
 import os
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import BinaryIO, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 
 # ─── Configuração ──────────────────────────────────────────────────────────
 
-# Por padrão grava em ArchMind/storage/uploads. Override via env var.
 BASE_DIR     = Path(__file__).resolve().parent.parent.parent  # → ArchMind/
 STORAGE_DIR  = Path(os.getenv("ARCHMIND_STORAGE_DIR", BASE_DIR / "storage"))
 UPLOADS_DIR  = STORAGE_DIR / "uploads"
@@ -33,13 +29,18 @@ REGISTRY     = STORAGE_DIR / "registry.json"
 
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Extensões aceitas e mapa de media types
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 MEDIA_TYPES = {
     ".png":  "image/png",
     ".jpg":  "image/jpeg",
     ".jpeg": "image/jpeg",
 }
+
+
+# ─── Erros públicos ────────────────────────────────────────────────────────
+
+class UnsupportedFormatError(ValueError):
+    """Extensão de arquivo não suportada."""
 
 
 # ─── Registry helpers ──────────────────────────────────────────────────────
@@ -63,26 +64,17 @@ def _save_registry(data: dict) -> None:
 
 # ─── API pública ────────────────────────────────────────────────────────────
 
-class UnsupportedFormatError(ValueError):
-    """Raised when the uploaded file has an extension we don't accept."""
-
-
-def save_image(stream: BinaryIO, filename: str) -> dict:
+def save_image_bytes(
+    data: bytes,
+    filename: str,
+    source_metadata: Optional[dict[str, Any]] = None,
+) -> dict:
     """
-    Persiste uma imagem em disco e registra no índice.
-
-    Args:
-        stream:   file-like com os bytes da imagem (ex: UploadFile.file).
-        filename: nome original com extensão.
-
-    Returns:
-        dict com metadados do upload: {image_id, original_name, media_type,
-        path, size_bytes, uploaded_at}.
-
-    Raises:
-        UnsupportedFormatError: extensão não permitida.
-        ValueError:             arquivo vazio.
+    Persiste bytes de imagem em disco e registra no índice.
     """
+    if not data:
+        raise ValueError("Dados vazios")
+
     ext = Path(filename or "").suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise UnsupportedFormatError(
@@ -93,20 +85,16 @@ def save_image(stream: BinaryIO, filename: str) -> dict:
     target   = UPLOADS_DIR / f"{image_id}{ext}"
 
     with open(target, "wb") as out:
-        shutil.copyfileobj(stream, out)
-
-    size = target.stat().st_size
-    if size == 0:
-        target.unlink(missing_ok=True)
-        raise ValueError("Arquivo vazio")
+        out.write(data)
 
     metadata = {
-        "image_id":      image_id,
-        "original_name": filename,
-        "media_type":    MEDIA_TYPES[ext],
-        "path":          str(target),
-        "size_bytes":    size,
-        "uploaded_at":   datetime.now(timezone.utc).isoformat(),
+        "image_id":        image_id,
+        "original_name":   filename,
+        "media_type":      MEDIA_TYPES[ext],
+        "path":            str(target),
+        "size_bytes":      len(data),
+        "uploaded_at":     datetime.now(timezone.utc).isoformat(),
+        "source_metadata": source_metadata or {},
     }
 
     registry = _load_registry()
@@ -117,12 +105,10 @@ def save_image(stream: BinaryIO, filename: str) -> dict:
 
 
 def get_image_metadata(image_id: str) -> Optional[dict]:
-    """Retorna metadados de uma imagem por ID, ou None se não existir."""
     return _load_registry().get(image_id)
 
 
 def get_image_path(image_id: str) -> Optional[Path]:
-    """Retorna o Path absoluto da imagem em disco, ou None."""
     meta = get_image_metadata(image_id)
     if not meta:
         return None
@@ -131,22 +117,16 @@ def get_image_path(image_id: str) -> Optional[Path]:
 
 
 def list_images(limit: int = 100) -> list[dict]:
-    """Lista metadados dos uploads, mais recentes primeiro."""
     items = list(_load_registry().values())
     items.sort(key=lambda m: m.get("uploaded_at", ""), reverse=True)
     return items[:limit]
 
 
 def delete_image(image_id: str) -> bool:
-    """Remove a imagem e seu registro. Retorna True se removida."""
     registry = _load_registry()
     meta = registry.pop(image_id, None)
     if not meta:
         return False
-
-    path = Path(meta["path"])
-    if path.exists():
-        path.unlink(missing_ok=True)
-
+    Path(meta["path"]).unlink(missing_ok=True)
     _save_registry(registry)
     return True
