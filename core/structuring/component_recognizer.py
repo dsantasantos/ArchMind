@@ -43,23 +43,20 @@ _TYPE_KEYWORDS = {
     "service": {"service", "api", "backend", "server", "gateway", "microservice"},
 }
 
-_NAME_PREFERRED_SUFFIXES = {"service", "application", "server", "client", "manager", "handler", "processor"}
-
 _LABEL_NOISE = {" component", " layer", " module", " group"}
 
 
 def recognize_components(data) -> list[dict]:
     hint_map = {kw.text: kw.hint for kw in data.detected_keywords}
-
-    text_to_layer: dict[str, str] = {}
-    for cg in data.context_groups:
-        for t in cg.contains:
-            text_to_layer[t] = cg.name
+    text_to_layer = {t: cg.name for cg in data.context_groups for t in cg.contains}
 
     components = []
     for idx, group in enumerate(data.grouped_elements, start=1):
+        name = _clean_label(group.label)
         comp_type = _determine_type(group.label, group.texts, hint_map, text_to_layer)
-        name, technology, aliases = _categorize_texts(group.label, group.texts)
+        technology = _extract_technology(group.texts)
+        aliases = [t for t in group.texts if t != group.label and t != name]
+
         components.append({
             "id": f"c{idx}",
             "name": name,
@@ -71,6 +68,13 @@ def recognize_components(data) -> list[dict]:
     return components
 
 
+def _clean_label(label: str) -> str:
+    for noise in _LABEL_NOISE:
+        if label.lower().endswith(noise):
+            return label[: len(label) - len(noise)].strip()
+    return label
+
+
 def _determine_type(label: str, texts: list[str], hint_map: dict, text_to_layer: dict) -> str:
     for text in texts:
         hint = hint_map.get(text)
@@ -78,13 +82,12 @@ def _determine_type(label: str, texts: list[str], hint_map: dict, text_to_layer:
             return _HINT_TO_TYPE[hint]
 
     for text in texts + [label]:
-        layer = text_to_layer.get(text, "")
-        layer_lower = layer.lower()
-        if "frontend" in layer_lower or "presentation" in layer_lower or "ui" in layer_lower:
+        layer = text_to_layer.get(text, "").lower()
+        if "frontend" in layer or "presentation" in layer or "ui" in layer:
             return "frontend"
-        if "data" in layer_lower or "database" in layer_lower or "persistence" in layer_lower:
+        if "data" in layer or "database" in layer or "persistence" in layer:
             return "database"
-        if "api" in layer_lower or "service" in layer_lower or "business" in layer_lower:
+        if "api" in layer or "service" in layer or "business" in layer:
             return "service"
 
     all_words = " ".join([label] + texts).lower()
@@ -95,46 +98,12 @@ def _determine_type(label: str, texts: list[str], hint_map: dict, text_to_layer:
     return "service"
 
 
-def _categorize_texts(label: str, texts: list[str]) -> tuple[str, str, list[str]]:
-    tech_exact: list[tuple[str, str]] = []
-    tech_compound: list[tuple[str, str]] = []
-    name_candidates: list[str] = []
-
+def _extract_technology(texts: list[str]) -> str:
     for text in texts:
-        lower = text.lower()
-        if lower in KNOWN_TECHNOLOGIES:
-            tech_exact.append((text, KNOWN_TECHNOLOGIES[lower]))
-        else:
-            matched_key = next((k for k in KNOWN_TECHNOLOGIES if k in lower), None)
-            if matched_key:
-                tech_compound.append((text, KNOWN_TECHNOLOGIES[matched_key]))
-            else:
-                name_candidates.append(text)
-
-    technology = ""
-    if tech_exact:
-        technology = tech_exact[0][1]
-    elif tech_compound:
-        technology = tech_compound[0][1]
-
-    name = _select_name(name_candidates, label)
-
-    aliases = [t for t in name_candidates if t != name] + [t for t, _ in tech_compound]
-
-    return name, technology, aliases
-
-
-def _select_name(candidates: list[str], label: str) -> str:
-    if not candidates:
-        clean_label = label
-        for noise in _LABEL_NOISE:
-            clean_label = clean_label.replace(noise, "").replace(noise.title(), "")
-        return clean_label.strip()
-
-    def score(text: str) -> tuple[int, int]:
-        words = text.split()
-        last_word_lower = words[-1].lower() if words else ""
-        suffix_bonus = 1 if last_word_lower in _NAME_PREFERRED_SUFFIXES else 0
-        return (len(words), suffix_bonus)
-
-    return max(candidates, key=score)
+        if text.lower() in KNOWN_TECHNOLOGIES:
+            return KNOWN_TECHNOLOGIES[text.lower()]
+    for text in texts:
+        matched = next((k for k in KNOWN_TECHNOLOGIES if k in text.lower()), None)
+        if matched:
+            return KNOWN_TECHNOLOGIES[matched]
+    return ""
