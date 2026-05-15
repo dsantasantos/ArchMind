@@ -30,5 +30,13 @@
       "source_type": "upload",
       "content_type": "image/png"
     }
+  },
+  "cc5bc04b91cf4a4e9d99702c5865154b": {
+    "image_id": "cc5bc04b91cf4a4e9d99702c5865154b",
+    "original_name": "desenho0001_c4_nivel_2.png",
+    "media_type": "image/png",
+    "path": "C:\\all-projects\\archmind\\storage\\uploads\\cc5bc04b91cf4a4e9d99702c5865154b.png",
+    "size_bytes": 183349,
+    "uploaded_at": "2026-05-13T23:59:05.500406+00:00"
   }
 }
