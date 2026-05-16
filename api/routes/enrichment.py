@@ -17,7 +17,12 @@ async def enrich_structured_data(payload: dict = Body(...)):
             content={"status": "error", "message": error},
         )
 
+    result = enrich(data)
     return JSONResponse(
         status_code=200,
-        content={"status": "success", "data": enrich(data)},
+        content={
+            "status": "success",
+            "execution_id": result.pop("execution_id"),
+            "data": result,
+        },
     )
