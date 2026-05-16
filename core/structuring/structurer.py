@@ -7,6 +7,7 @@ from core.structuring.component_recognizer import recognize_components
 from core.structuring.relationship_recognizer import recognize_relationships
 from core.structuring.communication_pattern_recognizer import recognize_communication_patterns
 from core.structuring.architecture_style_inferrer import infer_architecture_style
+from core.structuring.llm_refiner import refine_with_llm, enrich_descriptions
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,9 @@ def process(data: StructuringInput) -> dict:
 
         recognize_communication_patterns(relationships, output_model, execution_id)
         infer_architecture_style(components, output_model, execution_id)
+
+        output_model = refine_with_llm(output_model, execution_id)
+        output_model = enrich_descriptions(output_model, execution_id)
 
         output_model["execution_id"] = execution_id
 
