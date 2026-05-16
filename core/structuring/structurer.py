@@ -8,6 +8,7 @@ from core.structuring.relationship_recognizer import recognize_relationships
 from core.structuring.communication_pattern_recognizer import recognize_communication_patterns
 from core.structuring.architecture_style_inferrer import infer_architecture_style
 from core.structuring.llm_refiner import refine_with_llm, enrich_descriptions
+from core.structuring.output_validator import validate_and_finalize
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,7 @@ def process(data: StructuringInput) -> dict:
 
         output_model = refine_with_llm(output_model, execution_id)
         output_model = enrich_descriptions(output_model, execution_id)
+        output_model = validate_and_finalize(output_model, execution_id)
 
         output_model["execution_id"] = execution_id
 

@@ -535,3 +535,271 @@ class TestArchitectureRecognizer:
         assert result["communication_patterns"] == []
         assert result["confidence"] == 0.0
         assert result["uncertainties"] == []
+
+
+class TestOutputValidator:
+    _EXEC_ID = "test-exec-id"
+
+    def _clean_model(self):
+        return {
+            "components": [
+                {"id": "c1", "name": "Frontend", "type": "frontend"},
+                {"id": "c2", "name": "API", "type": "service"},
+                {"id": "c3", "name": "Database", "type": "database"},
+            ],
+            "relationships": [
+                {"from": "c1", "to": "c2", "type": "synchronous_request"},
+                {"from": "c2", "to": "c3", "type": "database_query"},
+            ],
+            "architecture_style": "3-tier architecture",
+            "communication_patterns": ["synchronous communication"],
+            "confidence": 1.0,
+            "uncertainties": [],
+        }
+
+    # --- validate_output_structure ---
+
+    def test_valid_model_does_not_raise(self):
+        from core.structuring.output_validator import validate_output_structure
+        validate_output_structure(self._clean_model(), self._EXEC_ID)
+
+    def test_missing_architecture_style_raises(self):
+        from core.structuring.output_validator import validate_output_structure, StructuringValidationError
+        model = self._clean_model()
+        del model["architecture_style"]
+        try:
+            validate_output_structure(model, self._EXEC_ID)
+            assert False, "expected StructuringValidationError"
+        except StructuringValidationError:
+            pass
+
+    def test_component_missing_id_raises(self):
+        from core.structuring.output_validator import validate_output_structure, StructuringValidationError
+        model = self._clean_model()
+        del model["components"][0]["id"]
+        try:
+            validate_output_structure(model, self._EXEC_ID)
+            assert False, "expected StructuringValidationError"
+        except StructuringValidationError:
+            pass
+
+    def test_component_missing_name_raises(self):
+        from core.structuring.output_validator import validate_output_structure, StructuringValidationError
+        model = self._clean_model()
+        del model["components"][1]["name"]
+        try:
+            validate_output_structure(model, self._EXEC_ID)
+            assert False, "expected StructuringValidationError"
+        except StructuringValidationError:
+            pass
+
+    def test_relationship_missing_type_raises(self):
+        from core.structuring.output_validator import validate_output_structure, StructuringValidationError
+        model = self._clean_model()
+        del model["relationships"][0]["type"]
+        try:
+            validate_output_structure(model, self._EXEC_ID)
+            assert False, "expected StructuringValidationError"
+        except StructuringValidationError:
+            pass
+
+    def test_error_message_names_missing_field(self):
+        from core.structuring.output_validator import validate_output_structure, StructuringValidationError
+        model = self._clean_model()
+        del model["components"][0]["type"]
+        try:
+            validate_output_structure(model, self._EXEC_ID)
+        except StructuringValidationError as exc:
+            assert "type" in str(exc)
+
+    # --- detect_inconsistencies ---
+
+    def test_clean_model_has_no_inconsistencies(self):
+        from core.structuring.output_validator import detect_inconsistencies
+        assert detect_inconsistencies(self._clean_model()) == []
+
+    def test_detects_broken_from_reference(self):
+        from core.structuring.output_validator import detect_inconsistencies
+        model = self._clean_model()
+        model["relationships"][0]["from"] = "c99"
+        issues = detect_inconsistencies(model)
+        assert any("c99" in i for i in issues)
+
+    def test_detects_broken_to_reference(self):
+        from core.structuring.output_validator import detect_inconsistencies
+        model = self._clean_model()
+        model["relationships"][1]["to"] = "c99"
+        issues = detect_inconsistencies(model)
+        assert any("c99" in i for i in issues)
+
+    def test_detects_duplicate_component_id(self):
+        from core.structuring.output_validator import detect_inconsistencies
+        model = self._clean_model()
+        model["components"].append({"id": "c1", "name": "OtherFront", "type": "frontend"})
+        issues = detect_inconsistencies(model)
+        assert any("c1" in i and "Duplicate" in i for i in issues)
+
+    def test_detects_duplicate_component_name_case_insensitive(self):
+        from core.structuring.output_validator import detect_inconsistencies
+        model = self._clean_model()
+        model["components"].append({"id": "c4", "name": "frontend", "type": "frontend"})
+        issues = detect_inconsistencies(model)
+        assert any("Duplicate" in i and "name" in i for i in issues)
+
+    def test_detects_invalid_component_type(self):
+        from core.structuring.output_validator import detect_inconsistencies
+        model = self._clean_model()
+        model["components"][0]["type"] = "unknown"
+        issues = detect_inconsistencies(model)
+        assert any("unknown" in i for i in issues)
+
+    def test_detects_unknown_relationship_type(self):
+        from core.structuring.output_validator import detect_inconsistencies
+        model = self._clean_model()
+        model["relationships"][0]["type"] = "unknown"
+        issues = detect_inconsistencies(model)
+        assert any("unknown" in i for i in issues)
+
+    # --- calculate_confidence ---
+
+    def test_perfect_model_confidence_is_1(self):
+        from core.structuring.output_validator import calculate_confidence
+        model = self._clean_model()
+        assert calculate_confidence(model, []) == 1.0
+
+    def test_unknown_component_type_reduces_confidence(self):
+        from core.structuring.output_validator import calculate_confidence
+        model = self._clean_model()
+        model["components"][0]["type"] = "unknown"
+        score = calculate_confidence(model, [])
+        assert score == 0.8
+
+    def test_two_unknown_component_types_reduce_confidence(self):
+        from core.structuring.output_validator import calculate_confidence
+        model = self._clean_model()
+        model["components"][0]["type"] = "unknown"
+        model["components"][1]["type"] = "unknown"
+        score = calculate_confidence(model, [])
+        assert score == 0.6
+
+    def test_unknown_relationship_type_reduces_confidence(self):
+        from core.structuring.output_validator import calculate_confidence
+        model = self._clean_model()
+        model["relationships"][0]["type"] = "unknown"
+        score = calculate_confidence(model, [])
+        assert score == 0.8
+
+    def test_unknown_architecture_style_reduces_confidence(self):
+        from core.structuring.output_validator import calculate_confidence
+        model = self._clean_model()
+        model["architecture_style"] = "unknown"
+        score = calculate_confidence(model, [])
+        assert score == 0.9
+
+    def test_none_architecture_style_reduces_confidence(self):
+        from core.structuring.output_validator import calculate_confidence
+        model = self._clean_model()
+        model["architecture_style"] = None
+        score = calculate_confidence(model, [])
+        assert score == 0.9
+
+    def test_inconsistencies_reduce_confidence(self):
+        from core.structuring.output_validator import calculate_confidence
+        model = self._clean_model()
+        score = calculate_confidence(model, ["some issue"])
+        assert score == 0.9
+
+    def test_confidence_never_below_zero(self):
+        from core.structuring.output_validator import calculate_confidence
+        model = self._clean_model()
+        model["architecture_style"] = "unknown"
+        for comp in model["components"]:
+            comp["type"] = "unknown"
+        for rel in model["relationships"]:
+            rel["type"] = "unknown"
+        score = calculate_confidence(model, ["issue1", "issue2"])
+        assert score >= 0.0
+
+    def test_confidence_never_above_one(self):
+        from core.structuring.output_validator import calculate_confidence
+        model = self._clean_model()
+        assert calculate_confidence(model, []) <= 1.0
+
+    # --- generate_uncertainties ---
+
+    def test_clean_model_has_no_uncertainties(self):
+        from core.structuring.output_validator import generate_uncertainties
+        assert generate_uncertainties(self._clean_model(), []) == []
+
+    def test_unknown_component_type_adds_uncertainty(self):
+        from core.structuring.output_validator import generate_uncertainties
+        model = self._clean_model()
+        model["components"][0]["type"] = "unknown"
+        msgs = generate_uncertainties(model, [])
+        assert any("Frontend" in m and "could not be classified" in m for m in msgs)
+
+    def test_unknown_relationship_type_adds_uncertainty(self):
+        from core.structuring.output_validator import generate_uncertainties
+        model = self._clean_model()
+        model["relationships"][0]["type"] = "unknown"
+        msgs = generate_uncertainties(model, [])
+        assert any("has unknown type" in m for m in msgs)
+
+    def test_unrecognized_relationship_type_adds_uncertainty(self):
+        from core.structuring.output_validator import generate_uncertainties
+        model = self._clean_model()
+        model["relationships"][0]["type"] = "alien_protocol"
+        msgs = generate_uncertainties(model, [])
+        assert any("alien_protocol" in m and "unrecognized" in m for m in msgs)
+
+    def test_duplicate_id_inconsistency_added_to_uncertainties(self):
+        from core.structuring.output_validator import generate_uncertainties
+        model = self._clean_model()
+        inconsistencies = ["Duplicate component id: 'c1'"]
+        msgs = generate_uncertainties(model, inconsistencies)
+        assert any("c1" in m for m in msgs)
+
+    def test_broken_reference_inconsistency_added_to_uncertainties(self):
+        from core.structuring.output_validator import generate_uncertainties
+        model = self._clean_model()
+        inconsistencies = ["Relationship references unknown component id: 'c99'"]
+        msgs = generate_uncertainties(model, inconsistencies)
+        assert any("c99" in m for m in msgs)
+
+    # --- validate_and_finalize ---
+
+    def test_finalize_sets_confidence_on_clean_model(self):
+        from core.structuring.output_validator import validate_and_finalize
+        model = self._clean_model()
+        result = validate_and_finalize(model, self._EXEC_ID)
+        assert result["confidence"] == 1.0
+
+    def test_finalize_sets_empty_uncertainties_on_clean_model(self):
+        from core.structuring.output_validator import validate_and_finalize
+        model = self._clean_model()
+        result = validate_and_finalize(model, self._EXEC_ID)
+        assert result["uncertainties"] == []
+
+    def test_finalize_reduces_confidence_for_unknown_rel_type(self):
+        from core.structuring.output_validator import validate_and_finalize
+        model = self._clean_model()
+        model["relationships"][0]["type"] = "unknown"
+        result = validate_and_finalize(model, self._EXEC_ID)
+        assert result["confidence"] < 1.0
+
+    def test_finalize_populates_uncertainties_for_unknown_rel_type(self):
+        from core.structuring.output_validator import validate_and_finalize
+        model = self._clean_model()
+        model["relationships"][0]["type"] = "unknown"
+        result = validate_and_finalize(model, self._EXEC_ID)
+        assert len(result["uncertainties"]) > 0
+
+    def test_finalize_raises_on_missing_required_field(self):
+        from core.structuring.output_validator import validate_and_finalize, StructuringValidationError
+        model = self._clean_model()
+        del model["architecture_style"]
+        try:
+            validate_and_finalize(model, self._EXEC_ID)
+            assert False, "expected StructuringValidationError"
+        except StructuringValidationError:
+            pass
