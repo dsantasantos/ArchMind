@@ -1,43 +1,49 @@
-import json
-import re
+from schemas.structuring_schema import StructuringInput
 
-from infra.llm.base import LLMClient
-from infra.llm.claude_client import ClaudeClient
-from core.structuring.prompts import build_relationships_prompt
+_TYPE_RULES: dict[str, list[str]] = {
+    "synchronous_request": ["http request", "rest", "api call"],
+    "database_query": ["database queries", "query"],
+}
 
-
-def recognize_relationships(
-    components: list[dict],
-    data,
-    llm: LLMClient | None = None,
-) -> list[dict]:
-    if llm is None:
-        llm = ClaudeClient()
-
-    prompt = build_relationships_prompt(components, {
-        "relationship_hints": [rh.model_dump(by_alias=True) for rh in data.relationship_hints],
-        "detected_keywords": [k.model_dump() for k in data.detected_keywords],
-    })
-    raw = llm.generate(prompt)
-
-    return _parse_relationships(raw)
+_PROTOCOL_RULES: dict[str, str] = {
+    "HTTP": ["http"],
+    "gRPC": ["grpc"],
+}
 
 
-def _parse_relationships(text: str) -> list[dict]:
-    try:
-        result = json.loads(text)
-        if isinstance(result, list):
-            return result
-    except json.JSONDecodeError:
-        pass
+def recognize_relationships(components: list[dict], data: StructuringInput) -> list[dict]:
+    name_to_id = {c["name"].strip().lower(): c["id"] for c in components}
 
-    match = re.search(r"\[.*\]", text, re.DOTALL)
-    if match:
-        try:
-            result = json.loads(match.group())
-            if isinstance(result, list):
-                return result
-        except json.JSONDecodeError:
-            pass
+    relationships = []
+    for hint in data.relationship_hints:
+        from_id = name_to_id.get(hint.from_.strip().lower())
+        to_id = name_to_id.get(hint.to.strip().lower())
 
-    return []
+        if from_id is None or to_id is None:
+            continue
+
+        relationships.append({
+            "from": from_id,
+            "to": to_id,
+            "type": _normalize_type(hint.label),
+            "protocol": _detect_protocol(hint.label),
+            "description": hint.label,
+        })
+
+    return relationships
+
+
+def _normalize_type(label: str) -> str:
+    normalized = label.strip().lower()
+    for rel_type, keywords in _TYPE_RULES.items():
+        if any(kw in normalized for kw in keywords):
+            return rel_type
+    return "unknown"
+
+
+def _detect_protocol(label: str) -> str | None:
+    normalized = label.strip().lower()
+    for protocol, keywords in _PROTOCOL_RULES.items():
+        if any(kw in normalized for kw in keywords):
+            return protocol
+    return None
