@@ -43,6 +43,10 @@ CONTAINER_ANCHOR_WORDS = {
     "microservice",
     "message queue", "message broker",
     "load balancer", "reverse proxy",
+    # Seções do modelo C4 (geralmente em maiúsculas no diagrama)
+    "context", "containers", "components", "code",
+    # Variantes pt-br
+    "contexto", "componentes", "código", "codigo",
 }
 
 # Tier 3: palavras-chave que indicam REGIÃO/CONTAINER quando aparecem como
@@ -94,6 +98,8 @@ SKIP_WORDS = {
     "diagrama", "diagram", "architecture", "arquitetura",
     "summary", "layers", "layer legend",
     "diagrama de arquitetura",
+    "software architecture diagrams",
+    "software architecture diagrams with c4 model",
     # Notação C4
     "c4 nível", "c4 nivel", "c4 level", "nível 1", "nível 2", "nivel 1",
     "nivel 2", "nivel 3", "context diagram", "container diagram",
@@ -101,6 +107,7 @@ SKIP_WORDS = {
     # Sistemas específicos / créditos
     "sistema de gestão", "erp-adj", "erp",
     "internet", "@", "marianabernado",
+    "packagemain", "packagemain.tech", "packagemain tech",
     # Subtítulos comuns que viram falsos membros
     "interface do usuário", "interface do usuario",
     "ponto de entrada", "ponto de entrada do cluster",
@@ -179,6 +186,21 @@ KNOWLEDGE_BASE = {
     "replication":  "data_replication",
     "integration":  "integration_layer",
     "storage":      "storage_layer",
+    # Termos genéricos comuns em diagramas C4 e arquiteturais
+    "database":     "relational_db",
+    "web ui":       "frontend_layer",
+    "ui":           "frontend_layer",
+    "crud":         "data_operation",
+    "module":       "code_module",
+    "function":     "code_function",
+    "class":        "code_class",
+    "system":       "system_component",
+    "external system": "external_system",
+    "internal system": "internal_system",
+    "context":      "c4_context_level",
+    "containers":   "c4_containers_level",
+    "components":   "c4_components_level",
+    "code":         "c4_code_level",
 }
 
 # Palavras da âncora → palavras que indicam pertencimento de um componente
@@ -215,6 +237,23 @@ LAYER_SEMANTIC_MAP = {
     "message":      ["kafka", "rabbitmq", "sqs", "pubsub", "queue", "broker"],
     "web":          ["frontend", "front-end", "backend", "back-end", "browser",
                      "html", "javascript", "server", "http"],
+    # Seções C4 — palavras-chave para classificar membros em cada seção
+    "context":      ["system", "user", "actor", "external", "internal",
+                     "sistema", "usuário", "usuario", "ator", "externo", "interno"],
+    "contexto":     ["system", "user", "actor", "external", "internal",
+                     "sistema", "usuário", "usuario", "ator", "externo", "interno"],
+    "containers":   ["web", "ui", "api", "database", "mobile", "app",
+                     "service", "spa", "server"],
+    "components":   ["crud", "auth", "controller", "service", "repository",
+                     "handler", "manager", "validator", "module"],
+    "componentes":  ["crud", "auth", "controller", "service", "repository",
+                     "handler", "manager", "validator", "module"],
+    "code":         ["module", "function", "class", "method", "package",
+                     "módulo", "modulo", "função", "funcao", "classe"],
+    "código":       ["module", "function", "class", "method", "package",
+                     "módulo", "modulo", "função", "funcao", "classe"],
+    "codigo":       ["module", "function", "class", "method", "package",
+                     "módulo", "modulo", "função", "funcao", "classe"],
 }
 
 
@@ -303,6 +342,12 @@ def _is_flow_text(text):
 
 def _is_skip(text):
     tl = text.lower().strip()
+    # Texto vazio ou só 1 caractere é ruído
+    if len(tl) <= 1:
+        return True
+    # Número isolado (ex: "1", "2", "3", "4" do C4) ou texto muito curto numérico
+    if tl.replace(".", "").replace(",", "").isdigit():
+        return True
     return any(w in tl for w in SKIP_WORDS)
 
 
@@ -394,6 +439,51 @@ def _detect_mode(anchors, img_w, img_h):
 # ---------------------------------------------------------------------------
 # Y-zone (modo vertical)
 # ---------------------------------------------------------------------------
+
+def _build_x_zones(anchors):
+    """
+    Constrói zonas X para atribuição de membros aos anchors horizontais.
+
+    Espelho de _build_y_zones. Cada anchor ganha uma faixa vertical: do
+    ponto médio com o anchor anterior até o ponto médio com o próximo.
+    Para os anchors das pontas (mais à esquerda e mais à direita), o
+    limite externo é a borda da imagem (ou meio-gap, se maior).
+
+    Útil para diagramas C4 onde os títulos (CONTEXT/CONTAINERS/COMPONENTS/CODE)
+    estão lado a lado no topo, e os componentes ficam embaixo de cada um.
+    """
+    sorted_a = sorted(enumerate(anchors), key=lambda x: x[1]["center"][0])
+    zones = []
+    n = len(sorted_a)
+
+    if n >= 2:
+        gaps = [sorted_a[k+1][1]["center"][0] - sorted_a[k][1]["center"][0]
+                for k in range(n - 1)]
+        avg_gap = sum(gaps) / len(gaps)
+    else:
+        avg_gap = 200
+
+    for k, (orig_idx, anchor) in enumerate(sorted_a):
+        xc = anchor["center"][0]
+        if k == 0:
+            x_min = xc - avg_gap          # extrema esquerda: amplo
+        else:
+            x_min = (sorted_a[k-1][1]["center"][0] + xc) / 2
+        if k == n - 1:
+            x_max = xc + avg_gap          # extrema direita: amplo
+        else:
+            x_max = (xc + sorted_a[k+1][1]["center"][0]) / 2
+        zones.append((orig_idx, x_min, x_max))
+    return zones
+
+
+def _assign_by_x_zone(point_x, zones):
+    """Retorna idx do anchor cuja zona X contém o ponto, ou None."""
+    for orig_idx, x_min, x_max in zones:
+        if x_min <= point_x <= x_max:
+            return orig_idx
+    return None
+
 
 def _build_y_zones(anchors):
     """
@@ -559,6 +649,7 @@ def _group_members(anchors, members, img_w, img_h):
     mode       = _detect_mode(anchors, img_w, img_h)
     anchor_kws = [_anchor_keywords(a["text"]) for a in anchors]
     y_zones    = _build_y_zones(anchors) if mode == "vertical" else None
+    x_zones    = _build_x_zones(anchors) if mode == "horizontal" else None
     max_radius = np.linalg.norm([img_w, img_h]) * 0.55
     result     = defaultdict(list)
 
@@ -577,9 +668,15 @@ def _group_members(anchors, members, img_w, img_h):
         if mode == "vertical" and y_zones:
             anchor_idx = _assign_by_y_zone(cluster_proxy, y_zones)
             if anchor_idx is None:
-                # Cluster fora de todas as zonas (acima do primeiro anchor
-                # ou abaixo do último por mais de meio-gap) → não pertence
-                # a nenhum layer.
+                continue
+
+        # ── HORIZONTAL: X-zone do centroide ──────────────────────────────
+        # Espelho do modo vertical: os anchors (CONTEXT/CONTAINERS/...) estão
+        # dispostos em colunas e dividem o diagrama em faixas verticais. Cada
+        # componente vai pra coluna na qual seu X cai.
+        elif mode == "horizontal" and x_zones:
+            anchor_idx = _assign_by_x_zone(cx, x_zones)
+            if anchor_idx is None:
                 continue
 
         # ── LEGEND: semântico do texto agregado ──────────────────────────
@@ -597,19 +694,12 @@ def _group_members(anchors, members, img_w, img_h):
                     continue
                 anchor_idx = dists[0][1]
 
-        # ── HORIZONTAL / PROXIMITY: bounding box global + Voronoi ───────
+        # ── PROXIMITY: bounding box global + Voronoi ─────────────────────
         else:
-            # 1. Calcula o bounding box de TODOS os anchors. Esta é a
-            #    "região arquitetural" do diagrama. Membros fora dela
-            #    (ex: User, Browser fora da caixa Web Server) são
-            #    descartados — ficam sem grupo.
             arch_box = _anchors_bounding_box(anchors, img_w, img_h,
                                              margin_frac=0.05)
             if not _point_in_rect(cx, cy, arch_box):
                 continue
-
-            # 2. Dentro da região arquitetural, atribui ao anchor mais
-            #    próximo (Voronoi simples).
             dists = sorted((_distance((cx, cy), a["center"]), i)
                            for i, a in enumerate(anchors))
             anchor_idx = dists[0][1]
@@ -750,54 +840,58 @@ def _detect_arrows_geometric(img, members, anchors, max_arrows=50):
 
 def _group_by_color(members, img):
     """
-    Agrupa membros por cor de fundo usando clusterização adaptativa:
-    1. Amostra cor HSV de cada membro
-    2. Agrupa hues que estão a <= 12° uns dos outros (clustering greedy)
-    3. Rotula cada cluster pela cor dominante
+    Agrupa membros formando "componentes visuais" — cada caixa do diagrama
+    vira UM grupo, com o texto principal da caixa como label e os textos
+    secundários como membros.
 
-    Isso descobre dinamicamente quantas cores distintas existem no diagrama,
-    em vez de comparar par-a-par com um único threshold global. Resolve o
-    caso "vermelho vs laranja" do diagrama Neoway (H≈175 e H≈12, dist
-    circular ≈17° — fica em clusters separados).
+    Estratégia:
+      1. Clusteriza membros espacialmente com gaps GRANDES (textos da
+         mesma caixa visual mesmo com 3 linhas: "API"/"Backend Service"/"REST API").
+      2. Para cada cluster, o texto mais "alto" (menor Y) vira o label.
+      3. Funde grupos com mesmo label (caso o OCR pegue o título duas vezes).
+
+    Útil para diagramas sem âncoras de camada nem legenda: cada componente
+    visual é uma unidade autônoma (ex: diagrama Frontend → API → Database).
     """
-    samples = []
-    for m in members:
-        color = _sample_component_bg(img, m["rect"])
-        if color is not None:
-            samples.append({"member": m, "color": color, "hue": color[0]})
-
-    if not samples:
+    if not members:
         return []
 
-    # Clustering greedy de hues com tolerância circular de 12°
-    HUE_TOL = 12
-    clusters = []   # lista de {hues: [...], members: [...]}
+    # Gaps generosos pra capturar caixas com múltiplas linhas:
+    # - max_y_gap=70: 3 linhas de texto cabem (line height ~25px + espaço)
+    # - max_x_gap=80: alinhamento centralizado dos textos numa caixa
+    clusters = _cluster_members(members, max_x_gap=80, max_y_gap=70)
 
-    for s in samples:
-        placed = False
-        for cl in clusters:
-            avg_hue = sum(cl["hues"]) / len(cl["hues"])
-            dh = min(abs(s["hue"] - avg_hue), 180 - abs(s["hue"] - avg_hue))
-            if dh <= HUE_TOL:
-                cl["hues"].append(s["hue"])
-                cl["members"].append(s["member"])
-                placed = True
-                break
-        if not placed:
-            clusters.append({"hues": [s["hue"]], "members": [s["member"]]})
-
-    # Monta grupos finais (só os com >= 2 membros)
-    groups = []
-    for cl in clusters:
-        if len(cl["members"]) < 2:
+    raw_groups = []
+    for cluster_indices in clusters:
+        if not cluster_indices:
             continue
-        avg_hue = sum(cl["hues"]) / len(cl["hues"])
-        groups.append({
-            "label": _hue_to_label(avg_hue),
-            "texts": [m["text"] for m in cl["members"]],
-        })
 
-    return groups
+        cluster_blocks = [members[i] for i in cluster_indices]
+        cluster_blocks.sort(key=lambda b: b["center"][1])
+
+        label = cluster_blocks[0]["text"]
+        # Dedup de textos repetidos dentro do mesmo cluster
+        seen_texts = set()
+        texts = []
+        for b in cluster_blocks:
+            if b["text"] not in seen_texts:
+                texts.append(b["text"])
+                seen_texts.add(b["text"])
+
+        raw_groups.append({"label": label, "texts": texts})
+
+    # Funde grupos com o mesmo label (OCR pode ter pego "Database" 2x)
+    merged: dict[str, dict] = {}
+    for g in raw_groups:
+        key = g["label"].lower().strip()
+        if key in merged:
+            for t in g["texts"]:
+                if t not in merged[key]["texts"]:
+                    merged[key]["texts"].append(t)
+        else:
+            merged[key] = {"label": g["label"], "texts": list(g["texts"])}
+
+    return list(merged.values())
 
 
 # ---------------------------------------------------------------------------
@@ -834,12 +928,110 @@ class DiagramExtractor:
             )
         h_img, w_img = img.shape[:2]
 
-        # ── 1. OCR ──────────────────────────────────────────────────────
-        raw = self.reader.readtext(img)
+        # ── 1. OCR multi-passada ─────────────────────────────────────────
+        # Diagramas C4 e arquiteturais frequentemente têm texto pequeno em
+        # caixas coloridas. Uma única passada do EasyOCR pode perder labels
+        # importantes (ex: "Web UI", "API", "AUTH"). Estratégia:
+        #   passada 1: imagem original (confiança normal)
+        #   passada 2: upscale 2x — melhora detecção de texto pequeno
+        #   passada 3: imagem em alto contraste com confiança baixa — pega
+        #              labels curtos tipo "API", "AUTH" em caixas coloridas
+        # Resultados são fundidos, deduplicando por proximidade.
+
+        raw1 = self.reader.readtext(img)
+
+        # Passada 2: upscale (só se a imagem original não for muito grande)
+        if max(h_img, w_img) < 2500:
+            scale = 3 if max(h_img, w_img) < 1500 else 2
+            img_up = cv2.resize(img, (w_img * scale, h_img * scale),
+                                interpolation=cv2.INTER_CUBIC)
+            raw2_scaled = self.reader.readtext(img_up)
+            # Reescala bboxes pra coordenadas originais
+            raw2 = []
+            for bbox, text, prob in raw2_scaled:
+                rescaled_bbox = [[p[0] / scale, p[1] / scale] for p in bbox]
+                raw2.append((rescaled_bbox, text, prob))
+        else:
+            raw2 = []
+
+        # Passada 3: alto contraste + confiança baixa, pra capturar texto
+        # curto em caixas saturadas (ex: "API", "AUTH" em caixa rosa/azul).
+        # Convertendo pra grayscale com equalização e re-tentando OCR.
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        gray_eq = cv2.equalizeHist(gray)
+        gray_rgb = cv2.cvtColor(gray_eq, cv2.COLOR_GRAY2BGR)
+        raw3 = self.reader.readtext(gray_rgb)
+
+        # Mescla resultados das passadas. Estratégia de deduplicação:
+        # se dois textos têm centros muito próximos (mesma região visual),
+        # são leituras do mesmo elemento — fica só a de maior confiança.
+        # Não comparamos as strings (evita o caso "API" vs "AP1" passarem
+        # ambos por não serem substring um do outro).
+        candidates = []  # lista de (bbox, text, prob)
+
+        low_conf = max(0.15, self.min_conf - 0.15)
+        all_passes = [(raw1, self.min_conf),
+                      (raw2, self.min_conf),
+                      (raw3, low_conf)]
+
+        for raw, threshold in all_passes:
+            for bbox, text, prob in raw:
+                if prob < threshold or not text.strip():
+                    continue
+                candidates.append((bbox, text, prob))
+
+        # Dedup posicional: ordena por confiança desc, pega o melhor pra cada
+        # região (tolerância: 35px horizontal, 18px vertical entre centros).
+        # Exceção: se os textos são claramente diferentes (não são leituras
+        # ambíguas do mesmo elemento), mantém ambos.
+        candidates.sort(key=lambda c: -c[2])  # maior confiança primeiro
+        combined = []
+        seen = []  # lista de (cx, cy, text_lower)
+
+        def _ambiguous_reading(t1: str, t2: str) -> bool:
+            """True se t1 e t2 parecem leituras alternativas do mesmo texto."""
+            a, b = t1.lower().strip(), t2.lower().strip()
+            if a == b:
+                return True
+            # Substring um do outro (ex: "API" e "AP1")
+            if a in b or b in a:
+                return True
+            # Prefixo comum significativo (ex: "AP1" e "API" — 2 chars iguais
+            # no início; "REST API" e "REST API @TM")
+            min_len = min(len(a), len(b))
+            if min_len >= 2:
+                common_prefix = 0
+                for i in range(min_len):
+                    if a[i] == b[i]:
+                        common_prefix += 1
+                    else:
+                        break
+                if common_prefix >= max(2, min_len * 0.6):
+                    return True
+            # Diferem em ≤30% dos caracteres (ex: "Rêqjjest" vs "Request")
+            if min_len < 3:
+                return False
+            common = sum(1 for c in a if c in b)
+            similarity = common / max(len(a), len(b))
+            return similarity >= 0.7
+
+        for bbox, text, prob in candidates:
+            cx, cy = _bbox_center(bbox)
+            # Raio adaptativo: textos similares podem estar mais distantes
+            # (passadas com upscale produzem bbox ligeiramente deslocados)
+            is_dup = any(
+                _ambiguous_reading(text, st)
+                and abs(cx - sx) < 60 and abs(cy - sy) < 25
+                for sx, sy, st in seen
+            )
+            if is_dup:
+                continue
+            seen.append((cx, cy, text))
+            combined.append((bbox, text, prob))
+
         raw_blocks = [
             {"text": text, "center": _bbox_center(bbox), "rect": _bbox_rect(bbox)}
-            for bbox, text, prob in raw
-            if prob >= self.min_conf and text.strip()
+            for bbox, text, prob in combined
         ]
 
         # ── 2. Merge de fragmentos próximos ──────────────────────────────
@@ -862,6 +1054,55 @@ class DiagramExtractor:
             else:
                 members.append(b)
 
+        # Hierarquia de âncoras: quando o diagrama tem âncoras estruturais
+        # fortes (CONTEXT/CONTAINERS/COMPONENTS/CODE, *Layer, *Camada),
+        # âncoras genéricas como "Database", "Frontend" se tornam membros
+        # daquela estrutura. Isso evita o caso do C4 onde "Database"
+        # virava um grupo separado em vez de ficar dentro de CONTAINERS.
+        STRUCTURAL_KEYWORDS = (
+            "layer", "camada", "tier",
+            "context", "containers", "components", "code",
+            "contexto", "componentes", "código", "codigo",
+            "cluster", "namespace",
+        )
+
+        def _is_structural(text: str) -> bool:
+            tl = text.lower().strip()
+            return any(kw in tl for kw in STRUCTURAL_KEYWORDS)
+
+        has_structural = any(_is_structural(a["text"]) for a in anchors)
+        if has_structural:
+            # Rebaixa âncoras genéricas para membros
+            still_anchors = []
+            for a in anchors:
+                if _is_structural(a["text"]):
+                    still_anchors.append(a)
+                else:
+                    members.append(a)
+            anchors = still_anchors
+        else:
+            # Sem âncoras estruturais: rebaixa âncoras genéricas que têm
+            # subtexto descritivo logo abaixo (ex: "Database" em cima de
+            # "SQL Server" forma um componente, não um grupo).
+            # Heurística: se há outro bloco (membro ou âncora) cujo centro
+            # está a <= 80px verticalmente abaixo e <= 60px horizontalmente,
+            # esta "âncora" é na verdade rótulo de um componente.
+            all_blocks = anchors + members + flow_blks
+            still_anchors = []
+            for a in anchors:
+                ax, ay = a["center"]
+                has_subtitle = any(
+                    b is not a
+                    and 5 < (b["center"][1] - ay) <= 80
+                    and abs(b["center"][0] - ax) <= 60
+                    for b in all_blocks
+                )
+                if has_subtitle:
+                    members.append(a)
+                else:
+                    still_anchors.append(a)
+            anchors = still_anchors
+
         # ── 5. Agrupamento ────────────────────────────────────────────────
         # Se há âncoras de camada → agrupa por âncora (modos vertical/legend/horizontal).
         # Se NÃO há âncoras → agrupa por COR de fundo dos componentes (cada
@@ -870,7 +1111,10 @@ class DiagramExtractor:
         context_groups = []
         grouped_elements = []
 
-        if anchors:
+        # Só usa agrupamento por âncoras se houver pelo menos 2 — uma âncora
+        # sozinha não justifica uma estrutura de camadas. Nesse caso ela é
+        # rebaixada a membro e o fallback (clusterização visual) age.
+        if len(anchors) >= 2:
             anchor_members = _group_members(anchors, members, w_img, h_img)
             for i, anchor in enumerate(anchors):
                 mems = list(dict.fromkeys(anchor_members[i]))
@@ -878,8 +1122,10 @@ class DiagramExtractor:
                 context_groups.append({"name": name, "contains": mems})
                 grouped_elements.append({"label": name, "texts": mems})
         else:
-            # Fallback: agrupamento por cor de fundo dos componentes
-            color_groups = _group_by_color(members, img)
+            # 0 ou 1 âncora — trata tudo como membros e clusteriza por
+            # componente visual (cada caixa do diagrama vira um grupo).
+            all_as_members = members + anchors
+            color_groups = _group_by_color(all_as_members, img)
             for g in color_groups:
                 context_groups.append({"name": g["label"], "contains": g["texts"]})
                 grouped_elements.append({"label": g["label"], "texts": g["texts"]})
