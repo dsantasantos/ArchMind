@@ -433,6 +433,76 @@ class TestRelationshipRecognizer:
         assert result == []
 
 
+class TestCommunicationPatternRecognizer:
+    def _run(self, rel_types: list[str]) -> list[str]:
+        from core.structuring.communication_pattern_recognizer import recognize_communication_patterns
+        relationships = [{"type": t} for t in rel_types]
+        output_model = {"communication_patterns": []}
+        recognize_communication_patterns(relationships, output_model)
+        return output_model["communication_patterns"]
+
+    def test_synchronous_request_adds_synchronous_communication(self):
+        result = self._run(["synchronous_request"])
+        assert "synchronous communication" in result
+
+    def test_synchronous_request_adds_request_response(self):
+        result = self._run(["synchronous_request"])
+        assert "request-response" in result
+
+    def test_event_publish_adds_event_driven(self):
+        result = self._run(["event_publish"])
+        assert "event-driven" in result
+
+    def test_event_publish_adds_asynchronous_communication(self):
+        result = self._run(["event_publish"])
+        assert "asynchronous communication" in result
+
+    def test_event_consume_adds_event_driven(self):
+        result = self._run(["event_consume"])
+        assert "event-driven" in result
+
+    def test_event_consume_adds_asynchronous_communication(self):
+        result = self._run(["event_consume"])
+        assert "asynchronous communication" in result
+
+    def test_queue_message_adds_asynchronous_communication(self):
+        result = self._run(["queue_message"])
+        assert "asynchronous communication" in result
+
+    def test_queue_message_does_not_add_event_driven(self):
+        result = self._run(["queue_message"])
+        assert "event-driven" not in result
+
+    def test_combined_types_no_duplicates(self):
+        result = self._run(["synchronous_request", "event_publish", "queue_message"])
+        assert len(result) == len(set(result))
+
+    def test_combined_types_all_patterns_present(self):
+        result = self._run(["synchronous_request", "event_publish"])
+        assert "synchronous communication" in result
+        assert "request-response" in result
+        assert "event-driven" in result
+        assert "asynchronous communication" in result
+
+    def test_empty_relationships_returns_empty_list(self):
+        result = self._run([])
+        assert result == []
+
+    def test_unknown_type_adds_no_patterns(self):
+        result = self._run(["unknown", "database_query"])
+        assert result == []
+
+    def test_result_is_a_list(self):
+        result = self._run(["synchronous_request"])
+        assert isinstance(result, list)
+
+    def test_output_model_is_mutated_in_place(self):
+        from core.structuring.communication_pattern_recognizer import recognize_communication_patterns
+        output_model = {"communication_patterns": []}
+        recognize_communication_patterns([{"type": "synchronous_request"}], output_model)
+        assert output_model["communication_patterns"] != []
+
+
 class TestArchitectureRecognizer:
     def test_parse_returns_dict_on_valid_json(self):
         from core.structuring.architecture_recognizer import _parse_architecture_result
