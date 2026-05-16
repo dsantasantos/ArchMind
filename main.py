@@ -11,6 +11,7 @@ from api.routes.execution_logs import router as execution_logs_router
 from api.routes.enrichment import router as enrichment_router
 from api.routes.enrichment_logs import router as enrichment_logs_router
 from api.routes.withllm_enrichment import router as withllm_enrichment_router
+from api.routes.withllm_extraction import router as withllm_extraction_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,6 +30,7 @@ app.include_router(structuring_router, prefix="/api/v1", tags=["Structuring"])
 app.include_router(execution_logs_router, prefix="/api/v1", tags=["Structuring"])
 app.include_router(withllm_structuring_router, prefix="/api/v1/withllm", tags=["Structuring (LLM)"])
 app.include_router(withllm_enrichment_router, prefix="/api/v1/withllm", tags=["Enrichment (LLM)"])
+app.include_router(withllm_extraction_router, prefix="/api/v1/withllm", tags=["Extraction (LLM)"])
 app.include_router(extraction_router, prefix="/api/v1", tags=["Extraction"])
 app.include_router(enrichment_router, prefix="/api/v1", tags=["Enrichment"])
 app.include_router(enrichment_logs_router, prefix="/api/v1", tags=["Enrichment"])

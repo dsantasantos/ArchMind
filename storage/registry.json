@@ -62,5 +62,89 @@
       "source_type": "upload",
       "content_type": "image/png"
     }
+  },
+  "8495f14f1b14400d994ac3743d683bed": {
+    "image_id": "8495f14f1b14400d994ac3743d683bed",
+    "original_name": "desenho0002_c4_nivel_2.png",
+    "media_type": "image/png",
+    "path": "C:\\all-projects\\archmind\\storage\\uploads\\8495f14f1b14400d994ac3743d683bed.png",
+    "size_bytes": 206388,
+    "uploaded_at": "2026-05-16T16:26:17.790819+00:00",
+    "source_metadata": {
+      "source_type": "upload",
+      "content_type": "image/png"
+    }
+  },
+  "b5b292a5d3124cfb894e3f01e9a04d69": {
+    "image_id": "b5b292a5d3124cfb894e3f01e9a04d69",
+    "original_name": "desenho0003_c4_nivel_2.png",
+    "media_type": "image/png",
+    "path": "C:\\all-projects\\archmind\\storage\\uploads\\b5b292a5d3124cfb894e3f01e9a04d69.png",
+    "size_bytes": 485755,
+    "uploaded_at": "2026-05-16T16:34:02.083705+00:00",
+    "source_metadata": {
+      "source_type": "upload",
+      "content_type": "image/png"
+    }
+  },
+  "023f5d4069c7438abb8c24500615c514": {
+    "image_id": "023f5d4069c7438abb8c24500615c514",
+    "original_name": "desenho0004_c4_nivel_2.png",
+    "media_type": "image/png",
+    "path": "C:\\all-projects\\archmind\\storage\\uploads\\023f5d4069c7438abb8c24500615c514.png",
+    "size_bytes": 142486,
+    "uploaded_at": "2026-05-16T17:41:21.884573+00:00",
+    "source_metadata": {
+      "source_type": "upload",
+      "content_type": "image/png"
+    }
+  },
+  "29ab4bbf64394d26b226027c7df8c8c9": {
+    "image_id": "29ab4bbf64394d26b226027c7df8c8c9",
+    "original_name": "desenho0001_c4_nivel_2.png",
+    "media_type": "image/png",
+    "path": "C:\\all-projects\\archmind\\storage\\uploads\\29ab4bbf64394d26b226027c7df8c8c9.png",
+    "size_bytes": 183349,
+    "uploaded_at": "2026-05-16T17:43:08.037501+00:00",
+    "source_metadata": {
+      "source_type": "upload",
+      "content_type": "image/png"
+    }
+  },
+  "eb2b9e2f546a4ac5a63f743f5ae5e6e2": {
+    "image_id": "eb2b9e2f546a4ac5a63f743f5ae5e6e2",
+    "original_name": "desenho0002_c4_nivel_2.png",
+    "media_type": "image/png",
+    "path": "C:\\all-projects\\archmind\\storage\\uploads\\eb2b9e2f546a4ac5a63f743f5ae5e6e2.png",
+    "size_bytes": 206388,
+    "uploaded_at": "2026-05-16T17:43:42.768081+00:00",
+    "source_metadata": {
+      "source_type": "upload",
+      "content_type": "image/png"
+    }
+  },
+  "d2062508508d4d1380c668519ca3f24c": {
+    "image_id": "d2062508508d4d1380c668519ca3f24c",
+    "original_name": "desenho0003_c4_nivel_2.png",
+    "media_type": "image/png",
+    "path": "C:\\all-projects\\archmind\\storage\\uploads\\d2062508508d4d1380c668519ca3f24c.png",
+    "size_bytes": 485755,
+    "uploaded_at": "2026-05-16T17:44:24.208378+00:00",
+    "source_metadata": {
+      "source_type": "upload",
+      "content_type": "image/png"
+    }
+  },
+  "49c684db658a4d76983dae1443870bd1": {
+    "image_id": "49c684db658a4d76983dae1443870bd1",
+    "original_name": "desenho0001_c4_nivel_2.png",
+    "media_type": "image/png",
+    "path": "C:\\all-projects\\archmind\\storage\\uploads\\49c684db658a4d76983dae1443870bd1.png",
+    "size_bytes": 183349,
+    "uploaded_at": "2026-05-16T17:52:28.697043+00:00",
+    "source_metadata": {
+      "source_type": "upload",
+      "content_type": "image/png"
+    }
   }
 }
