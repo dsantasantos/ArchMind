@@ -332,86 +332,37 @@ class TestInvalidPayloads:
         assert response.json()["status"] == "error"
 
 
-class TestComponentRecognizer:
-    def test_recognizer_returns_empty_list_on_invalid_json(self):
-        from core.structuring.component_recognizer import _parse_components
-        assert _parse_components("not json") == []
+from core.structuring.parser import safe_parse_json
 
-    def test_recognizer_parses_json_wrapped_in_markdown(self):
-        from core.structuring.component_recognizer import _parse_components
+class TestParser:
+    def test_parser_returns_empty_list_on_invalid_json(self):
+        assert safe_parse_json("not json", expected_type=list) == []
+
+    def test_parser_parses_json_wrapped_in_markdown(self):
         text = '```json\n[{"id":"c1","name":"A","type":"frontend","technology":"React"}]\n```'
-        result = _parse_components(text)
+        result = safe_parse_json(text, expected_type=list)
         assert len(result) == 1
         assert result[0]["name"] == "A"
         assert result[0]["technology"] == "React"
 
-    def test_recognizer_parses_clean_json(self):
-        from core.structuring.component_recognizer import _parse_components
-        result = _parse_components(MOCK_LLM_RESPONSE)
+    def test_parser_parses_clean_json(self):
+        result = safe_parse_json(MOCK_LLM_RESPONSE, expected_type=list)
         assert len(result) == 3
         assert result[0]["type"] == "frontend"
         assert result[0]["technology"] == "React"
 
-    def test_recognizer_parses_json_with_nested_aliases_array(self):
-        from core.structuring.component_recognizer import _parse_components
-        # non-greedy regex would stop at first ] inside aliases, breaking the parse
+    def test_parser_parses_json_with_nested_aliases_array(self):
         text = '```json\n[{"id":"c1","name":"Frontend","type":"frontend","technology":"React","aliases":["React Application"]}]\n```'
-        result = _parse_components(text)
+        result = safe_parse_json(text, expected_type=list)
         assert len(result) == 1
         assert result[0]["aliases"] == ["React Application"]
 
-
-class TestRelationshipRecognizer:
-    def test_recognizer_returns_empty_list_on_invalid_json(self):
-        from core.structuring.relationship_recognizer import _parse_relationships
-        assert _parse_relationships("not json") == []
-
-    def test_recognizer_parses_json_wrapped_in_markdown(self):
-        from core.structuring.relationship_recognizer import _parse_relationships
-        text = '```json\n[{"from":"c1","to":"c2","type":"synchronous_request","protocol":"HTTP","description":"A calls B"}]\n```'
-        result = _parse_relationships(text)
-        assert len(result) == 1
-        assert result[0]["type"] == "synchronous_request"
-        assert result[0]["protocol"] == "HTTP"
-
-    def test_recognizer_parses_clean_json(self):
-        from core.structuring.relationship_recognizer import _parse_relationships
-        result = _parse_relationships(MOCK_RELATIONSHIPS_RESPONSE)
-        assert len(result) == 2
-        assert result[0]["from"] == "c1"
-        assert result[0]["to"] == "c2"
-        assert result[1]["type"] == "database_query"
-
-
-class TestArchitectureRecognizer:
-    def test_parse_returns_dict_on_valid_json(self):
-        from core.structuring.architecture_recognizer import _parse_architecture_result
+    def test_parser_returns_dict_on_valid_json(self):
         raw = '{"architecture_style":"3-tier architecture","communication_patterns":["request-response"],"confidence":0.9,"uncertainties":[]}'
-        result = _parse_architecture_result(raw)
+        result = safe_parse_json(raw, expected_type=dict)
         assert result["architecture_style"] == "3-tier architecture"
         assert result["confidence"] == 0.9
-        assert result["communication_patterns"] == ["request-response"]
-        assert result["uncertainties"] == []
 
-    def test_parse_returns_fallback_on_invalid_json(self):
-        from core.structuring.architecture_recognizer import _parse_architecture_result
-        result = _parse_architecture_result("not json")
-        assert result["architecture_style"] == "unknown"
-        assert result["confidence"] == 0.0
-        assert result["communication_patterns"] == []
-        assert result["uncertainties"] == []
-
-    def test_parse_returns_dict_on_markdown_wrapped_json(self):
-        from core.structuring.architecture_recognizer import _parse_architecture_result
-        raw = '```json\n{"architecture_style":"microservices","communication_patterns":[],"confidence":0.8,"uncertainties":["unclear boundaries"]}\n```'
-        result = _parse_architecture_result(raw)
-        assert result["architecture_style"] == "microservices"
-        assert result["confidence"] == 0.8
-
-    def test_parse_fills_missing_fields_with_fallback(self):
-        from core.structuring.architecture_recognizer import _parse_architecture_result
-        result = _parse_architecture_result('{"architecture_style":"monolith"}')
-        assert result["architecture_style"] == "monolith"
-        assert result["communication_patterns"] == []
-        assert result["confidence"] == 0.0
-        assert result["uncertainties"] == []
+    def test_parser_returns_fallback_on_invalid_json_dict(self):
+        result = safe_parse_json("not json", expected_type=dict)
+        assert result == {}

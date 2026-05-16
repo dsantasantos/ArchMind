@@ -30,8 +30,10 @@ Classify each component as one of:
 Rules:
 - Return only relevant architecture components
 - Do not duplicate components
-- Normalize names if needed (e.g., "React Application" -> name "Frontend")
-- technology: the specific technology/framework identified (e.g., "React", "SQL Server", "Spring Boot")
+- Normalize names to standard architectural terms:
+  - If it's a database (e.g., "DB", "Postgres", "SQL Server", "Database"), use name "Database" and put the specific tech in "technology"
+  - If it's a generic service, use a descriptive name (e.g., "Payment Service" instead of "Payment")
+- technology: the specific technology/framework identified (e.g., "React", "PostgreSQL", "Spring Boot")
 - aliases: other names this component appears as in the diagram (omit if none)
 
 Return JSON in the format:

@@ -4,6 +4,7 @@ import re
 from infra.llm.base import LLMClient
 from infra.llm.claude_client import ClaudeClient
 from core.structuring.prompts import build_components_prompt
+from core.structuring.parser import safe_parse_json
 
 
 def recognize_components(data, llm: LLMClient | None = None) -> list[dict]:
@@ -18,24 +19,4 @@ def recognize_components(data, llm: LLMClient | None = None) -> list[dict]:
     })
     raw = llm.generate(prompt)
 
-    return _parse_components(raw)
-
-
-def _parse_components(text: str) -> list[dict]:
-    try:
-        result = json.loads(text)
-        if isinstance(result, list):
-            return result
-    except json.JSONDecodeError:
-        pass
-
-    match = re.search(r"\[.*\]", text, re.DOTALL)
-    if match:
-        try:
-            result = json.loads(match.group())
-            if isinstance(result, list):
-                return result
-        except json.JSONDecodeError:
-            pass
-
-    return []
+    return safe_parse_json(raw, expected_type=list)
