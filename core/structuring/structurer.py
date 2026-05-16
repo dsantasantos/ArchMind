@@ -16,24 +16,23 @@ def structure(raw_data: dict[str, Any]) -> dict[str, Any]:
 
 from core.structuring.component_recognizer import recognize_components
 from core.structuring.relationship_recognizer import recognize_relationships
-from core.structuring.architecture_recognizer import recognize_architecture_style
 from core.structuring.communication_pattern_recognizer import recognize_communication_patterns
+from core.structuring.architecture_style_inferrer import infer_architecture_style
 
 
 def process(data: StructuringInput) -> dict:
     components = recognize_components(data)
     relationships = recognize_relationships(components, data)
-    context_groups = [g.model_dump() for g in data.context_groups]
-    arch_result = recognize_architecture_style(components, relationships, context_groups)
 
     output_model = {
         "components": components,
         "relationships": relationships,
-        "architecture_style": arch_result.get("architecture_style", "unknown"),
+        "architecture_style": None,
         "communication_patterns": [],
-        "confidence": arch_result.get("confidence", 0.0),
-        "uncertainties": arch_result.get("uncertainties", []),
+        "confidence": 1.0,
+        "uncertainties": [],
     }
 
     recognize_communication_patterns(relationships, output_model)
+    infer_architecture_style(components, output_model)
     return output_model
