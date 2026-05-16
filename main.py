@@ -1,8 +1,19 @@
+import logging
+
 from fastapi import FastAPI
+
+from infra.log_store import ExecutionLogHandler
 from api.routes.upload import router as upload_router
 from api.routes.structuring import router as structuring_router
 from api.routes.withllm_structuring import router as withllm_structuring_router
 from api.routes.extraction import router as extraction_router
+from api.routes.execution_logs import router as execution_logs_router
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logging.getLogger().addHandler(ExecutionLogHandler())
 
 app = FastAPI(
     title="ArchMind",
@@ -12,5 +23,6 @@ app = FastAPI(
 
 app.include_router(upload_router, prefix="/api/v1", tags=["Diagrams"])
 app.include_router(structuring_router, prefix="/api/v1", tags=["Structuring"])
+app.include_router(execution_logs_router, prefix="/api/v1", tags=["Structuring"])
 app.include_router(withllm_structuring_router, prefix="/api/v1/withllm", tags=["Structuring (LLM)"])
 app.include_router(extraction_router, prefix="/api/v1", tags=["Extraction"])

@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 _REQUIRED_TYPES_THREE_TIER = {"frontend", "service", "database"}
 
 
@@ -13,7 +17,7 @@ def _has_event_driven(output_model: dict) -> bool:
     return "event-driven" in output_model.get("communication_patterns", [])
 
 
-def infer_architecture_style(components: list[dict], output_model: dict) -> None:
+def infer_architecture_style(components: list[dict], output_model: dict, execution_id: str) -> None:
     component_types = {c.get("type") for c in components}
 
     event_driven = _has_event_driven(output_model)
@@ -34,3 +38,17 @@ def infer_architecture_style(components: list[dict], output_model: dict) -> None
         style = "unknown"
 
     output_model["architecture_style"] = style
+
+    logger.info(
+        "Architecture style inferred",
+        extra={
+            "execution_id": execution_id,
+            "architecture_style": style,
+            "flags": {
+                "event_driven": event_driven,
+                "microservices": microservices,
+                "three_tier": three_tier,
+            },
+            "component_types": list(component_types),
+        },
+    )

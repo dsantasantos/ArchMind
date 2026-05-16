@@ -17,7 +17,12 @@ async def structure_input(payload: dict = Body(...)):
             content={"status": "error", "message": error},
         )
 
+    result = process(parsed)
     return JSONResponse(
         status_code=200,
-        content={"status": "success", "data": process(parsed)},
+        content={
+            "status": "success",
+            "execution_id": result.pop("execution_id"),
+            "data": result,
+        },
     )

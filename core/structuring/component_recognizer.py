@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 KNOWN_TECHNOLOGIES = {
     "rest api": "REST API",
     "graphql": "GraphQL",
@@ -46,7 +50,7 @@ _TYPE_KEYWORDS = {
 _LABEL_NOISE = {" component", " layer", " module", " group"}
 
 
-def recognize_components(data) -> list[dict]:
+def recognize_components(data, execution_id: str) -> list[dict]:
     hint_map = {kw.text: kw.hint for kw in data.detected_keywords}
     text_to_layer = {t: cg.name for cg in data.context_groups for t in cg.contains}
 
@@ -65,6 +69,17 @@ def recognize_components(data) -> list[dict]:
             "aliases": aliases,
         })
 
+    logger.info(
+        "Components extracted",
+        extra={
+            "execution_id": execution_id,
+            "count": len(components),
+            "type_distribution": {
+                t: sum(1 for c in components if c["type"] == t)
+                for t in {c["type"] for c in components}
+            },
+        },
+    )
     return components
 
 

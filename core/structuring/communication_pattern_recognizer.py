@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 _PATTERN_RULES: list[tuple[set[str], list[str]]] = [
     ({"synchronous_request"}, ["synchronous communication", "request-response"]),
     ({"event_publish", "event_consume"}, ["event-driven", "asynchronous communication"]),
@@ -5,7 +9,7 @@ _PATTERN_RULES: list[tuple[set[str], list[str]]] = [
 ]
 
 
-def recognize_communication_patterns(relationships: list[dict], output_model: dict) -> None:
+def recognize_communication_patterns(relationships: list[dict], output_model: dict, execution_id: str) -> None:
     rel_types = {r.get("type") for r in relationships}
     patterns: set[str] = set()
 
@@ -14,3 +18,12 @@ def recognize_communication_patterns(relationships: list[dict], output_model: di
             patterns.update(labels)
 
     output_model["communication_patterns"] = sorted(patterns)
+
+    logger.info(
+        "Communication patterns identified",
+        extra={
+            "execution_id": execution_id,
+            "patterns": output_model["communication_patterns"],
+            "relationship_types_seen": list(rel_types),
+        },
+    )
